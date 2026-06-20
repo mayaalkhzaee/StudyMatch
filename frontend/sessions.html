@@ -35,24 +35,28 @@
 </nav>
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">Browse Sessions</h2>
         <a href="post-session.html" class="btn btn-primary">+ Post Session</a>
     </div>
 
-    <div id="error-msg" class="alert alert-danger d-none"></div>
+    <div class="mb-4">
+        <input type="text" id="search-input" class="form-control" placeholder="Filter by course name...">
+    </div>
 
-    <div id="sessions-list" class="row g-3"></div>
+    <div id="sessions-container" class="row g-3"></div>
 
-    <p id="no-sessions" class="d-none text-center text-muted mt-5">
-        No study sessions posted yet. Be the first!
-    </p>
+    <p id="no-sessions" class="d-none text-center text-muted mt-5">No study sessions posted yet. Be the first!</p>
+    <p id="no-results" class="d-none text-center text-muted mt-3">No sessions match your search.</p>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
 <script>
+    let allSessions = [];
     let currentUserId = null;
 
     async function init() {
@@ -63,51 +67,65 @@
                 currentUserId = me.id;
             }
         }
+
         await loadSessions();
+
+        document.getElementById('search-input').addEventListener('input', function () {
+            renderSessions(this.value.trim().toLowerCase());
+        });
     }
 
     async function loadSessions() {
         const res = await fetch(BASE_URL + '/sessions');
-        if (!res.ok) {
-            showError('Failed to load sessions.');
+        if (!res.ok) return;
+        allSessions = await res.json();
+        renderSessions('');
+    }
+
+    function renderSessions(filter) {
+        const container = document.getElementById('sessions-container');
+        const noSessions = document.getElementById('no-sessions');
+        const noResults = document.getElementById('no-results');
+
+        noSessions.classList.add('d-none');
+        noResults.classList.add('d-none');
+
+        if (allSessions.length === 0) {
+            noSessions.classList.remove('d-none');
             return;
         }
 
-        const sessions = await res.json();
-        const list = document.getElementById('sessions-list');
+        const filtered = filter
+            ? allSessions.filter(s => s.course.toLowerCase().includes(filter))
+            : allSessions;
 
-        if (sessions.length === 0) {
-            document.getElementById('no-sessions').classList.remove('d-none');
+        if (filtered.length === 0) {
+            container.innerHTML = '';
+            noResults.classList.remove('d-none');
             return;
         }
 
-        list.innerHTML = sessions.map(renderCard).join('');
-
-        list.querySelectorAll('[data-join]').forEach(btn => {
-            btn.addEventListener('click', () => handleJoin(btn.dataset.join, btn));
-        });
-        list.querySelectorAll('[data-leave]').forEach(btn => {
-            btn.addEventListener('click', () => handleLeave(btn.dataset.leave, btn));
-        });
+        container.innerHTML = filtered.map(renderCard).join('');
     }
 
     function renderCard(session) {
-        const sessionId = session.id || session._id;
-        const isFull = session.enrolled_count >= session.capacity;
+        const sid = session._id || session.id;
+        const spotsLeft = session.capacity - session.enrolled_count;
+        const isFull = spotsLeft <= 0;
+        const isHost = session.host === getUsername();
         const isEnrolled = currentUserId && (session.enrolled_users || []).includes(currentUserId);
-        const isHost = currentUserId && session.host_id === currentUserId;
 
         let actionBtn = '';
-        if (isHost) {
+        if (!isLoggedIn()) {
+            actionBtn = '<a href="login.html" class="btn btn-outline-primary btn-sm">Login to join</a>';
+        } else if (isHost) {
             actionBtn = '<span class="badge bg-secondary">Your session</span>';
         } else if (isEnrolled) {
-            actionBtn = `<button class="btn btn-outline-danger btn-sm" data-leave="${sessionId}">Leave</button>`;
+            actionBtn = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
         } else if (isFull) {
             actionBtn = '<button class="btn btn-secondary btn-sm" disabled>Full</button>';
-        } else if (isLoggedIn()) {
-            actionBtn = `<button class="btn btn-primary btn-sm" data-join="${sessionId}">Join</button>`;
         } else {
-            actionBtn = '<a href="login.html" class="btn btn-outline-primary btn-sm">Login to Join</a>';
+            actionBtn = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
         }
 
         const typeBadge = session.type === 'online'
@@ -115,7 +133,7 @@
             : '<span class="badge bg-info text-dark">In-Person</span>';
 
         return `
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6 col-lg-4" id="card-${sid}">
                 <div class="card h-100 shadow-sm">
                     <div class="card-body d-flex flex-column">
                         <div class="d-flex justify-content-between align-items-start mb-2">
@@ -124,10 +142,15 @@
                         </div>
                         <p class="text-muted small mb-1">Hosted by <strong>${session.host}</strong></p>
                         <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
-                        <p class="card-text text-truncate text-muted small mb-3">${session.location}</p>
-                        <div class="mt-auto d-flex justify-content-between align-items-center">
-                            <span class="text-muted small">${session.enrolled_count} / ${session.capacity} joined</span>
-                            ${actionBtn}
+                        <p class="card-text text-muted small text-truncate mb-3">${session.location}</p>
+                        <div class="mt-auto">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted small" id="spots-${sid}">
+                                    ${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left
+                                </span>
+                                <div id="btn-${sid}">${actionBtn}</div>
+                            </div>
+                            <div id="error-${sid}" class="text-danger small mt-1 d-none"></div>
                         </div>
                     </div>
                 </div>
@@ -135,40 +158,67 @@
         `;
     }
 
-    async function handleJoin(sessionId, btn) {
-        btn.disabled = true;
-        const res = await fetch(BASE_URL + '/sessions/' + sessionId + '/join', {
+    async function handleJoin(sid) {
+        const btnEl = document.getElementById('btn-' + sid);
+        const errorEl = document.getElementById('error-' + sid);
+        errorEl.classList.add('d-none');
+        btnEl.innerHTML = '<button class="btn btn-primary btn-sm" disabled>Joining...</button>';
+
+        const res = await fetch(BASE_URL + '/sessions/' + sid + '/join', {
             method: 'POST',
             headers: authHeaders()
         });
         const data = await res.json();
+
         if (!res.ok) {
-            showError(data.detail || 'Could not join session.');
-            btn.disabled = false;
+            errorEl.textContent = data.detail || 'Could not join session.';
+            errorEl.classList.remove('d-none');
+            btnEl.innerHTML = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
             return;
         }
-        await loadSessions();
+
+        const session = allSessions.find(s => (s._id || s.id) === sid);
+        if (session) {
+            session.enrolled_count = data.enrolled_count;
+            if (!session.enrolled_users) session.enrolled_users = [];
+            session.enrolled_users.push(currentUserId);
+        }
+
+        const spotsLeft = session.capacity - data.enrolled_count;
+        document.getElementById('spots-' + sid).textContent =
+            spotsLeft + ' spot' + (spotsLeft !== 1 ? 's' : '') + ' left';
+        btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
     }
 
-    async function handleLeave(sessionId, btn) {
-        btn.disabled = true;
-        const res = await fetch(BASE_URL + '/sessions/' + sessionId + '/leave', {
+    async function handleLeave(sid) {
+        const btnEl = document.getElementById('btn-' + sid);
+        const errorEl = document.getElementById('error-' + sid);
+        errorEl.classList.add('d-none');
+        btnEl.innerHTML = '<button class="btn btn-outline-danger btn-sm" disabled>Leaving...</button>';
+
+        const res = await fetch(BASE_URL + '/sessions/' + sid + '/leave', {
             method: 'POST',
             headers: authHeaders()
         });
         const data = await res.json();
+
         if (!res.ok) {
-            showError(data.detail || 'Could not leave session.');
-            btn.disabled = false;
+            errorEl.textContent = data.detail || 'Could not leave session.';
+            errorEl.classList.remove('d-none');
+            btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
             return;
         }
-        await loadSessions();
-    }
 
-    function showError(msg) {
-        const el = document.getElementById('error-msg');
-        el.textContent = msg;
-        el.classList.remove('d-none');
+        const session = allSessions.find(s => (s._id || s.id) === sid);
+        if (session) {
+            session.enrolled_count = data.enrolled_count;
+            session.enrolled_users = (session.enrolled_users || []).filter(id => id !== currentUserId);
+        }
+
+        const spotsLeft = session.capacity - data.enrolled_count;
+        document.getElementById('spots-' + sid).textContent =
+            spotsLeft + ' spot' + (spotsLeft !== 1 ? 's' : '') + ' left';
+        btnEl.innerHTML = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
     }
 
     init();
