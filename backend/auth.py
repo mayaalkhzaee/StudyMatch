@@ -35,9 +35,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 # --- Pydantic Models ---
 class UserRegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
+    username: str = Field(...)
+    email: EmailStr = Field(...)
+    password: str = Field(...)
 
 class UserRegisterResponse(BaseModel):
     id: str
@@ -62,8 +62,8 @@ class DBUser(UserBase):
     hashed_password: str
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str= Field(...)
+    password: str= Field(...)
 
 class TokenResponse(BaseModel):
     access_token: str

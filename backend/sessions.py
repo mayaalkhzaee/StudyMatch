@@ -1,33 +1,44 @@
 import uuid
 from datetime import datetime, timezone, date
+from enum import Enum
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi.encoders import jsonable_encoder
 from typing import Annotated
 
-# Import the dependency from our auth module
 from auth import get_current_user
 
-# Create the router for sessions
 router = APIRouter()
 
 # --- Pydantic Models ---
+class SessionType(str, Enum):
+    online = "online"
+    in_person = "in-person"
+
 class SessionCreate(BaseModel):
-    course: str
-    type: str
-    location: str
-    date: str
-    time: str
-    capacity: int
+    course: str = Field(...)
+    type: SessionType = Field(...)
+    location: str = Field(...)
+    date: date = Field(...)
+    time: str = Field(...)
+    capacity: int = Field(..., gt=0)
+
+class SessionUpdate(BaseModel):
+    course: str | None = Field(default=None)
+    type: SessionType | None = Field(default=None)
+    location: str | None = Field(default=None)
+    date: date | None = Field(default=None)
+    time: str | None = Field(default=None)
+    capacity: int | None = Field(default=None, gt=0)
 
 class SessionResponse(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     course: str
     host: str
     host_id: str
-    type: str
+    type: SessionType
     location: str
-    date: str
+    date: date
     time: str
     capacity: int
     enrolled_count: int = 0
@@ -47,6 +58,31 @@ async def get_all_sessions(request: Request):
     sessions = [i async for i in records]
     return sessions
 
+@router.get("/recommended", response_model=list[SessionResponse])
+async def get_recommended_sessions(
+    request: Request, 
+    current_user: Annotated[dict, Depends(get_current_user)]
+):
+    db = request.app.database
+    joined_ids = current_user.get("joined_session_ids", [])
+    
+    # 1. Fetch courses from sessions the user has already joined
+    joined_cursor = db["sessions"].find({"_id": {"$in": joined_ids}})
+    joined_courses = list(set([s["course"] async for s in joined_cursor if "course" in s]))
+    
+    if not joined_courses:
+        return []
+        
+    # 2. Find sessions matching courses, excluding joined and hosted
+    query = {
+        "course": {"$in": joined_courses},
+        "_id": {"$nin": joined_ids},
+        "host_id": {"$ne": str(current_user["_id"])}
+    }
+    
+    recommended_cursor = db["sessions"].find(query)
+    return [s async for s in recommended_cursor]
+
 @router.get("/{id}", response_model=SessionResponse)
 async def get_session(id: str, request: Request):
     db = request.app.database
@@ -61,12 +97,8 @@ async def create_session(
     session_data: SessionCreate, 
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    try:
-        session_date = date.fromisoformat(session_data.date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
-
-    if session_date < date.today():
+    # Pydantic already converted session_data.date to a python date object (cleaner than the previous method)
+    if session_data.date < date.today():
         raise HTTPException(status_code=400, detail="Session date cannot be in the past.")
 
     db = request.app.database
