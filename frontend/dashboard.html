@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Dashboard — StudyMatch</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="index.html">StudyMatch</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item"><a class="nav-link" href="sessions.html">Browse Sessions</a></li>
+                <li class="nav-item"><a class="nav-link" href="post-session.html">Post Session</a></li>
+                <li class="nav-item"><a class="nav-link active" href="dashboard.html">My Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="stats.html">Stats</a></li>
+            </ul>
+            <div id="nav-guest" class="d-none">
+                <a href="login.html" class="btn btn-outline-light me-2">Login</a>
+                <a href="register.html" class="btn btn-light">Register</a>
+            </div>
+            <div id="nav-user" class="d-none d-flex align-items-center gap-2">
+                <span class="text-white">Hi, <strong id="nav-username"></strong></span>
+                <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<div class="container mt-4">
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h4 class="mb-1" id="profile-username">Loading...</h4>
+            <p class="text-muted mb-0" id="profile-email"></p>
+        </div>
+    </div>
+
+    <h4 class="mb-3">Sessions I'm Hosting</h4>
+    <div id="hosted-container" class="row g-3 mb-5"></div>
+
+    <h4 class="mb-3">Sessions I've Joined</h4>
+    <div id="joined-container" class="row g-3 mb-5"></div>
+
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="edit-modal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit Session</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-form">
+                    <div class="mb-3">
+                        <label for="edit-course" class="form-label">Course</label>
+                        <input type="text" class="form-control" id="edit-course" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-type" class="form-label">Session Type</label>
+                        <select class="form-select" id="edit-type" required>
+                            <option value="online">Online</option>
+                            <option value="in-person">In-Person</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-location" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="edit-location" required>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-3">
+                            <label for="edit-date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="edit-date" required>
+                        </div>
+                        <div class="col mb-3">
+                            <label for="edit-time" class="form-label">Time</label>
+                            <input type="time" class="form-control" id="edit-time" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-capacity" class="form-label">Capacity</label>
+                        <input type="number" class="form-control" id="edit-capacity" min="1" required>
+                    </div>
+                    <div id="edit-error" class="alert alert-danger d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="edit-form" class="btn btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/navbar.js"></script>
+<script src="js/auth.js"></script>
+<script>
+    let currentEditId = null;
+    let mySessions = [];
+    let joinedSessions = [];
+
+    async function init() {
+        if (!isLoggedIn()) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const [profileRes, mySessionsRes, joinedRes] = await Promise.all([
+            fetch(BASE_URL + '/users/me', { headers: authHeaders() }),
+            fetch(BASE_URL + '/users/me/sessions', { headers: authHeaders() }),
+            fetch(BASE_URL + '/users/me/joined', { headers: authHeaders() })
+        ]);
+
+        const profile = await profileRes.json();
+        mySessions = await mySessionsRes.json();
+        joinedSessions = await joinedRes.json();
+
+        document.getElementById('profile-username').textContent = profile.username;
+        document.getElementById('profile-email').textContent = profile.email;
+
+        renderHostedSessions();
+        renderJoinedSessions();
+    }
+
+    function typeBadge(type) {
+        return type === 'online'
+            ? '<span class="badge bg-success">Online</span>'
+            : '<span class="badge bg-info text-dark">In-Person</span>';
+    }
+
+    function renderHostedSessions() {
+        const container = document.getElementById('hosted-container');
+        if (mySessions.length === 0) {
+            container.innerHTML = '<p class="text-muted">You haven\'t posted any sessions yet. <a href="post-session.html">Post one!</a></p>';
+            return;
+        }
+        container.innerHTML = mySessions.map(renderHostCard).join('');
+    }
+
+    function renderHostCard(session) {
+        const sid = session._id;
+        return `
+            <div class="col-md-6 col-lg-4" id="host-card-${sid}">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">${session.course}</h5>
+                            ${typeBadge(session.type)}
+                        </div>
+                        <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
+                        <p class="card-text text-muted small text-truncate mb-1">${session.location}</p>
+                        <p class="card-text text-muted small mb-3">${session.enrolled_count} / ${session.capacity} joined</p>
+                        <div class="mt-auto d-flex gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="openEditModal('${sid}')">Edit</button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="handleDelete('${sid}')">Delete</button>
+                        </div>
+                        <div id="host-error-${sid}" class="text-danger small mt-2 d-none"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderJoinedSessions() {
+        const container = document.getElementById('joined-container');
+        if (joinedSessions.length === 0) {
+            container.innerHTML = '<p class="text-muted">You haven\'t joined any sessions yet. <a href="sessions.html">Browse sessions!</a></p>';
+            return;
+        }
+        container.innerHTML = joinedSessions.map(renderJoinedCard).join('');
+    }
+
+    function renderJoinedCard(session) {
+        const sid = session._id;
+        const spotsLeft = session.capacity - session.enrolled_count;
+        return `
+            <div class="col-md-6 col-lg-4" id="joined-card-${sid}">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">${session.course}</h5>
+                            ${typeBadge(session.type)}
+                        </div>
+                        <p class="text-muted small mb-1">Hosted by <strong>${session.host}</strong></p>
+                        <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
+                        <p class="card-text text-muted small text-truncate mb-3">${session.location}</p>
+                        <div class="mt-auto d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">${spotsLeft} spot${spotsLeft !== 1 ? 's' : ''} left</span>
+                            <button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>
+                        </div>
+                        <div id="joined-error-${sid}" class="text-danger small mt-2 d-none"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function handleDelete(sid) {
+        const errorEl = document.getElementById('host-error-' + sid);
+        errorEl.classList.add('d-none');
+
+        const res = await fetch(BASE_URL + '/sessions/' + sid, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            errorEl.textContent = data.detail || 'Could not delete session.';
+            errorEl.classList.remove('d-none');
+            return;
+        }
+
+        document.getElementById('host-card-' + sid).remove();
+        mySessions = mySessions.filter(s => s._id !== sid);
+    }
+
+    async function handleLeave(sid) {
+        const errorEl = document.getElementById('joined-error-' + sid);
+        errorEl.classList.add('d-none');
+
+        const res = await fetch(BASE_URL + '/sessions/' + sid + '/leave', {
+            method: 'POST',
+            headers: authHeaders()
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            errorEl.textContent = data.detail || 'Could not leave session.';
+            errorEl.classList.remove('d-none');
+            return;
+        }
+
+        document.getElementById('joined-card-' + sid).remove();
+        joinedSessions = joinedSessions.filter(s => s._id !== sid);
+    }
+
+    function openEditModal(sid) {
+        currentEditId = sid;
+        const session = mySessions.find(s => s._id === sid);
+
+        document.getElementById('edit-course').value = session.course;
+        document.getElementById('edit-type').value = session.type;
+        document.getElementById('edit-location').value = session.location;
+        document.getElementById('edit-date').value = session.date;
+        document.getElementById('edit-time').value = session.time;
+        document.getElementById('edit-capacity').value = session.capacity;
+        document.getElementById('edit-error').classList.add('d-none');
+
+        new bootstrap.Modal(document.getElementById('edit-modal')).show();
+    }
+
+    document.getElementById('edit-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const errorEl = document.getElementById('edit-error');
+        errorEl.classList.add('d-none');
+
+        const body = {
+            course: document.getElementById('edit-course').value,
+            type: document.getElementById('edit-type').value,
+            location: document.getElementById('edit-location').value,
+            date: document.getElementById('edit-date').value,
+            time: document.getElementById('edit-time').value,
+            capacity: parseInt(document.getElementById('edit-capacity').value)
+        };
+
+        const res = await fetch(BASE_URL + '/sessions/' + currentEditId, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorEl.textContent = data.detail || 'Could not update session.';
+            errorEl.classList.remove('d-none');
+            return;
+        }
+
+        const idx = mySessions.findIndex(s => s._id === currentEditId);
+        if (idx !== -1) mySessions[idx] = data;
+
+        const cardEl = document.getElementById('host-card-' + currentEditId);
+        if (cardEl) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = renderHostCard(data);
+            cardEl.replaceWith(tmp.firstElementChild);
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById('edit-modal')).hide();
+    });
+
+    init();
+</script>
+
+</body>
+</html>
