@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navbar Template — StudyMatch</title>
+
+    <!-- ============================================================
+         STEP 1: Copy this Bootstrap CDN link into your <head>
+    ============================================================ -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+</head>
+<body>
+
+<!-- ============================================================
+     STEP 2: Copy this entire <nav> block at the top of your <body>
+============================================================ -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+
+        <a class="navbar-brand fw-bold" href="index.html">StudyMatch</a>
+
+        <!-- Hamburger toggle for mobile -->
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+            aria-controls="navbarNav"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+        >
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <!-- Nav links -->
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link" href="sessions.html">Browse Sessions</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="post-session.html">Post Session</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="dashboard.html">My Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="stats.html">Stats</a>
+                </li>
+            </ul>
+
+            <!-- Guest state: shown when no token in localStorage -->
+            <div id="nav-guest" class="d-none">
+                <a href="login.html" class="btn btn-outline-light me-2">Login</a>
+                <a href="register.html" class="btn btn-light">Register</a>
+            </div>
+
+            <!-- Logged-in state: shown when token exists in localStorage -->
+            <div id="nav-user" class="d-none d-flex align-items-center gap-2">
+                <span class="text-white">
+                    Hi, <strong id="nav-username"></strong>
+                </span>
+                <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+            </div>
+
+        </div>
+    </div>
+</nav>
+<!-- ============================================================
+     END of navbar block
+============================================================ -->
+
+
+    <!-- Page content goes here -->
+    <div class="container mt-4">
+        <h2>Navbar Preview</h2>
+        <p class="text-muted">
+            Open browser DevTools → Application → Local Storage and set
+            <code>token</code> + <code>username</code> to test the logged-in state.
+        </p>
+        <p>
+            To use this navbar in any page, copy:
+            <ol>
+                <li>The Bootstrap CSS link into <code>&lt;head&gt;</code></li>
+                <li>The <code>&lt;nav&gt;</code> block at the top of <code>&lt;body&gt;</code></li>
+                <li>The two script tags at the bottom of <code>&lt;body&gt;</code> (Bootstrap JS + navbar.js)</li>
+            </ol>
+        </p>
+    </div>
+
+
+<!-- ============================================================
+     STEP 3: Copy these two script tags at the bottom of your <body>
+     (Bootstrap JS must come before navbar.js)
+============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/navbar.js"></script>
+
+</body>
+</html>
