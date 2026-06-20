@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.encoders import jsonable_encoder
 from pwdlib import PasswordHash
+from pwdlib.hashers.bcrypt import BcryptHasher
 from typing import Annotated
 from dotenv import dotenv_values
 
@@ -14,7 +15,7 @@ JWT_SECRET = config["JWT_SECRET"]
 
 router = APIRouter()
 
-password_hash = PasswordHash.recommended()
+password_hash = PasswordHash([BcryptHasher()])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def get_password_hash(password: str):

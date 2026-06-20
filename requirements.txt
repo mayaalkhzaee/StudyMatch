@@ -26,8 +26,10 @@ pydantic-settings==2.14.1
 pydantic_core==2.46.4
 Pygments==2.20.0
 pymongo==4.17.0
-pwdlib[bcrypt]
-PyJWT
+pwdlib[bcrypt]==0.3.0
+bcrypt==5.0.0
+PyJWT==2.13.0
+email-validator==2.3.0
 python-dotenv==1.2.2
 python-multipart==0.0.32
 PyYAML==6.0.3
