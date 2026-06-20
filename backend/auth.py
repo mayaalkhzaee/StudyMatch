@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.encoders import jsonable_encoder
 from pwdlib import PasswordHash
-from pwdlib.hashers.bcrypt import BcryptHasher
 from typing import Annotated
 from dotenv import dotenv_values
 
@@ -15,7 +14,7 @@ JWT_SECRET = config["JWT_SECRET"]
 
 router = APIRouter()
 
-password_hash = PasswordHash([BcryptHasher()])
+password_hash = PasswordHash.recommended()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def get_password_hash(password: str):
@@ -82,10 +81,9 @@ async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_sc
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Invalid token payload"
             )
-    except Exception:
-        # Catching generic JWT exceptions
+    except jwt.PyJWTError:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing or invalid"
         )
     
@@ -108,14 +106,14 @@ async def register_user(user: UserRegisterRequest, request: Request):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_password = get_password_hash(user.password)
-    new_user = {
-        "username": user.username,
-        "email": user.email,
-        "hashed_password": hashed_password,
-        "joined_session_ids": []
-    }
-    result = await db.users.insert_one(new_user)
-    return UserRegisterResponse(id=str(result.inserted_id), username=user.username, email=user.email)
+    new_user = DBUser(
+        username=user.username,
+        email=user.email,
+        hashed_password=hashed_password
+    )
+    juser = jsonable_encoder(new_user)
+    await db.users.insert_one(juser)
+    return UserRegisterResponse(id=juser["_id"], username=user.username, email=user.email)
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: Request, data: LoginRequest):

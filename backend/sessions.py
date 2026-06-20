@@ -71,7 +71,7 @@ async def create_session(
         time=session_data.time,
         capacity=session_data.capacity,
         host=current_user["username"],
-        host_id=current_user["_id"]
+        host_id=str(current_user["_id"])
     )
     
     jsession = jsonable_encoder(new_session)
