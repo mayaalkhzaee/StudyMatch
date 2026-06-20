@@ -63,32 +63,38 @@
                 <form id="edit-form">
                     <div class="mb-3">
                         <label for="edit-course" class="form-label">Course</label>
-                        <input type="text" class="form-control" id="edit-course" required>
+                        <input type="text" class="form-control" id="edit-course">
+                        <div class="text-danger small mt-1" id="err-edit-course"></div>
                     </div>
                     <div class="mb-3">
                         <label for="edit-type" class="form-label">Session Type</label>
-                        <select class="form-select" id="edit-type" required>
+                        <select class="form-select" id="edit-type">
                             <option value="online">Online</option>
                             <option value="in-person">In-Person</option>
                         </select>
+                        <div class="text-danger small mt-1" id="err-edit-type"></div>
                     </div>
                     <div class="mb-3">
                         <label for="edit-location" class="form-label">Location</label>
-                        <input type="text" class="form-control" id="edit-location" required>
+                        <input type="text" class="form-control" id="edit-location">
+                        <div class="text-danger small mt-1" id="err-edit-location"></div>
                     </div>
                     <div class="row">
                         <div class="col mb-3">
                             <label for="edit-date" class="form-label">Date</label>
-                            <input type="date" class="form-control" id="edit-date" required>
+                            <input type="date" class="form-control" id="edit-date">
+                            <div class="text-danger small mt-1" id="err-edit-date"></div>
                         </div>
                         <div class="col mb-3">
                             <label for="edit-time" class="form-label">Time</label>
-                            <input type="time" class="form-control" id="edit-time" required>
+                            <input type="time" class="form-control" id="edit-time">
+                            <div class="text-danger small mt-1" id="err-edit-time"></div>
                         </div>
                     </div>
                     <div class="mb-3">
                         <label for="edit-capacity" class="form-label">Capacity</label>
-                        <input type="number" class="form-control" id="edit-capacity" min="1" required>
+                        <input type="number" class="form-control" id="edit-capacity">
+                        <div class="text-danger small mt-1" id="err-edit-capacity"></div>
                     </div>
                     <div id="edit-error" class="alert alert-danger d-none"></div>
                 </form>
@@ -247,6 +253,59 @@
         joinedSessions = joinedSessions.filter(s => s._id !== sid);
     }
 
+    function validateEditForm() {
+        const course = document.getElementById('edit-course').value.trim();
+        const type = document.getElementById('edit-type').value;
+        const location = document.getElementById('edit-location').value.trim();
+        const date = document.getElementById('edit-date').value;
+        const time = document.getElementById('edit-time').value;
+        const capacity = document.getElementById('edit-capacity').value;
+
+        ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
+            document.getElementById('err-edit-' + f).textContent = '';
+        });
+
+        const today = new Date().toISOString().split('T')[0];
+        let valid = true;
+
+        if (!course || course.length < 2) {
+            document.getElementById('err-edit-course').textContent = 'Course must be at least 2 characters.';
+            valid = false;
+        }
+        if (!type || !['online', 'in-person'].includes(type)) {
+            document.getElementById('err-edit-type').textContent = 'Please select a session type.';
+            valid = false;
+        }
+        if (!location || location.length < 3) {
+            document.getElementById('err-edit-location').textContent = 'Location must be at least 3 characters.';
+            valid = false;
+        }
+        if (!date) {
+            document.getElementById('err-edit-date').textContent = 'Date is required.';
+            valid = false;
+        } else if (date < today) {
+            document.getElementById('err-edit-date').textContent = 'Date must be today or in the future.';
+            valid = false;
+        }
+        if (!time) {
+            document.getElementById('err-edit-time').textContent = 'Time is required.';
+            valid = false;
+        }
+        const cap = parseInt(capacity);
+        if (!capacity) {
+            document.getElementById('err-edit-capacity').textContent = 'Capacity is required.';
+            valid = false;
+        } else if (isNaN(cap) || cap < 1) {
+            document.getElementById('err-edit-capacity').textContent = 'Capacity must be at least 1.';
+            valid = false;
+        } else if (cap > 50) {
+            document.getElementById('err-edit-capacity').textContent = 'Capacity cannot exceed 50.';
+            valid = false;
+        }
+
+        return valid;
+    }
+
     function openEditModal(sid) {
         currentEditId = sid;
         const session = mySessions.find(s => s._id === sid);
@@ -258,6 +317,9 @@
         document.getElementById('edit-time').value = session.time;
         document.getElementById('edit-capacity').value = session.capacity;
         document.getElementById('edit-error').classList.add('d-none');
+        ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
+            document.getElementById('err-edit-' + f).textContent = '';
+        });
 
         new bootstrap.Modal(document.getElementById('edit-modal')).show();
     }
@@ -265,13 +327,15 @@
     document.getElementById('edit-form').addEventListener('submit', async function (e) {
         e.preventDefault();
 
+        if (!validateEditForm()) return;
+
         const errorEl = document.getElementById('edit-error');
         errorEl.classList.add('d-none');
 
         const body = {
-            course: document.getElementById('edit-course').value,
+            course: document.getElementById('edit-course').value.trim(),
             type: document.getElementById('edit-type').value,
-            location: document.getElementById('edit-location').value,
+            location: document.getElementById('edit-location').value.trim(),
             date: document.getElementById('edit-date').value,
             time: document.getElementById('edit-time').value,
             capacity: parseInt(document.getElementById('edit-capacity').value)

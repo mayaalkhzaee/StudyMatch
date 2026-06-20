@@ -44,15 +44,18 @@
                     <form id="register-form">
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" placeholder="e.g. maya" required>
+                            <input type="text" class="form-control" id="username" placeholder="e.g. maya">
+                            <div class="text-danger small mt-1" id="err-username"></div>
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="email" placeholder="you@uni.edu" required>
+                            <input type="text" class="form-control" id="email" placeholder="you@uni.edu">
+                            <div class="text-danger small mt-1" id="err-email"></div>
                         </div>
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" required>
+                            <input type="password" class="form-control" id="password">
+                            <div class="text-danger small mt-1" id="err-password"></div>
                         </div>
 
                         <div id="error-msg" class="alert alert-danger d-none"></div>
@@ -73,11 +76,55 @@
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
 <script>
+    function validateRegisterForm() {
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        document.getElementById('err-username').textContent = '';
+        document.getElementById('err-email').textContent = '';
+        document.getElementById('err-password').textContent = '';
+
+        let valid = true;
+
+        if (!username) {
+            document.getElementById('err-username').textContent = 'Username is required.';
+            valid = false;
+        } else if (username.length < 3) {
+            document.getElementById('err-username').textContent = 'Username must be at least 3 characters.';
+            valid = false;
+        } else if (username.length > 20) {
+            document.getElementById('err-username').textContent = 'Username must be 20 characters or fewer.';
+            valid = false;
+        }
+
+        if (!email) {
+            document.getElementById('err-email').textContent = 'Email is required.';
+            valid = false;
+        } else if (!emailRegex.test(email)) {
+            document.getElementById('err-email').textContent = 'Invalid email format.';
+            valid = false;
+        }
+
+        if (!password) {
+            document.getElementById('err-password').textContent = 'Password is required.';
+            valid = false;
+        } else if (password.length < 6) {
+            document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
+            valid = false;
+        }
+
+        return valid;
+    }
+
     document.getElementById('register-form').addEventListener('submit', async function (e) {
         e.preventDefault();
 
-        const username = document.getElementById('username').value;
-        const email = document.getElementById('email').value;
+        if (!validateRegisterForm()) return;
+
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
         const errorMsg = document.getElementById('error-msg');
         errorMsg.classList.add('d-none');

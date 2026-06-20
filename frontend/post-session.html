@@ -44,33 +44,39 @@
                     <form id="post-form">
                         <div class="mb-3">
                             <label for="course" class="form-label">Course</label>
-                            <input type="text" class="form-control" id="course" placeholder="e.g. EECE480" required>
+                            <input type="text" class="form-control" id="course" placeholder="e.g. EECE480">
+                            <div class="text-danger small mt-1" id="err-course"></div>
                         </div>
                         <div class="mb-3">
                             <label for="type" class="form-label">Session Type</label>
-                            <select class="form-select" id="type" required>
+                            <select class="form-select" id="type">
                                 <option value="" disabled selected>Select type</option>
                                 <option value="online">Online</option>
                                 <option value="in-person">In-Person</option>
                             </select>
+                            <div class="text-danger small mt-1" id="err-type"></div>
                         </div>
                         <div class="mb-3">
                             <label for="location" class="form-label">Location</label>
-                            <input type="text" class="form-control" id="location" placeholder="Room name or meeting link" required>
+                            <input type="text" class="form-control" id="location" placeholder="Room name or meeting link">
+                            <div class="text-danger small mt-1" id="err-location"></div>
                         </div>
                         <div class="row">
                             <div class="col mb-3">
                                 <label for="date" class="form-label">Date</label>
-                                <input type="date" class="form-control" id="date" required>
+                                <input type="date" class="form-control" id="date">
+                                <div class="text-danger small mt-1" id="err-date"></div>
                             </div>
                             <div class="col mb-3">
                                 <label for="time" class="form-label">Time</label>
-                                <input type="time" class="form-control" id="time" required>
+                                <input type="time" class="form-control" id="time">
+                                <div class="text-danger small mt-1" id="err-time"></div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <label for="capacity" class="form-label">Capacity</label>
-                            <input type="number" class="form-control" id="capacity" min="1" placeholder="Max number of students" required>
+                            <input type="number" class="form-control" id="capacity" placeholder="Max number of students">
+                            <div class="text-danger small mt-1" id="err-capacity"></div>
                         </div>
 
                         <div id="error-msg" class="alert alert-danger d-none"></div>
@@ -91,16 +97,71 @@
         window.location.href = 'login.html';
     }
 
+    function validatePostForm() {
+        const course = document.getElementById('course').value.trim();
+        const type = document.getElementById('type').value;
+        const location = document.getElementById('location').value.trim();
+        const date = document.getElementById('date').value;
+        const time = document.getElementById('time').value;
+        const capacity = document.getElementById('capacity').value;
+
+        ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
+            document.getElementById('err-' + f).textContent = '';
+        });
+
+        const today = new Date().toISOString().split('T')[0];
+        let valid = true;
+
+        if (!course || course.length < 2) {
+            document.getElementById('err-course').textContent = 'Course must be at least 2 characters.';
+            valid = false;
+        }
+        if (!type || !['online', 'in-person'].includes(type)) {
+            document.getElementById('err-type').textContent = 'Please select a session type.';
+            valid = false;
+        }
+        if (!location || location.length < 3) {
+            document.getElementById('err-location').textContent = 'Location must be at least 3 characters.';
+            valid = false;
+        }
+        if (!date) {
+            document.getElementById('err-date').textContent = 'Date is required.';
+            valid = false;
+        } else if (date < today) {
+            document.getElementById('err-date').textContent = 'Date must be today or in the future.';
+            valid = false;
+        }
+        if (!time) {
+            document.getElementById('err-time').textContent = 'Time is required.';
+            valid = false;
+        }
+        const cap = parseInt(capacity);
+        if (!capacity) {
+            document.getElementById('err-capacity').textContent = 'Capacity is required.';
+            valid = false;
+        } else if (isNaN(cap) || cap < 1) {
+            document.getElementById('err-capacity').textContent = 'Capacity must be at least 1.';
+            valid = false;
+        } else if (cap > 50) {
+            document.getElementById('err-capacity').textContent = 'Capacity cannot exceed 50.';
+            valid = false;
+        }
+
+        return valid;
+    }
+
     document.getElementById('post-form').addEventListener('submit', async function (e) {
         e.preventDefault();
+
+        if (!validatePostForm()) return;
 
         const errorMsg = document.getElementById('error-msg');
         errorMsg.classList.add('d-none');
 
         const body = {
-            course: document.getElementById('course').value,
+            course: document.getElementById('course').value.trim(),
             type: document.getElementById('type').value,
-            location: document.getElementById('location').value,
+            location: document.getElementById('location').value.trim(),
             date: document.getElementById('date').value,
             time: document.getElementById('time').value,
             capacity: parseInt(document.getElementById('capacity').value)
