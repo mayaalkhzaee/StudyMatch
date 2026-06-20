@@ -62,7 +62,7 @@ class DBUser(UserBase):
     hashed_password: str
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class TokenResponse(BaseModel):
@@ -101,9 +101,10 @@ async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_sc
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRegisterResponse)
 async def register_user(user: UserRegisterRequest, request: Request):
     db = request.app.database
-    existing_user = await db.users.find_one({"email": user.email})
-    if existing_user:
+    if await db.users.find_one({"email": user.email}):
         raise HTTPException(status_code=400, detail="Email already registered")
+    if await db.users.find_one({"username": user.username}):
+        raise HTTPException(status_code=400, detail="Username already taken")
     
     hashed_password = get_password_hash(user.password)
     new_user = DBUser(
@@ -120,10 +121,10 @@ async def login(req: Request, data: LoginRequest):
     db = req.app.database
     collection = db["users"]
     
-    # Find user by email
     user = await collection.find_one({"email": data.email})
-    
-    # Verify user exists AND password hash matches
+    if user is None:
+        user = await collection.find_one({"username": data.email})
+
     if not user or not verify_password_hash(data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

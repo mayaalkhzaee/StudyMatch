@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
 from fastapi.encoders import jsonable_encoder
@@ -61,9 +61,16 @@ async def create_session(
     session_data: SessionCreate, 
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
+    try:
+        session_date = date.fromisoformat(session_data.date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+    if session_date < date.today():
+        raise HTTPException(status_code=400, detail="Session date cannot be in the past.")
+
     db = request.app.database
-    
-    # Create new session object combining user input and host data
+
     new_session = SessionResponse(
         course=session_data.course,
         type=session_data.type,
