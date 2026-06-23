@@ -127,356 +127,358 @@
 <script src="js/auth.js"></script>
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 <script>
-    let allSessions = [];
-    let currentUserId = null;
-    let activeFilters = new Set();
-    let calendarInstance = null;
-    let currentView = 'card';
-    const TODAY = new Date().toISOString().split('T')[0];
+  let allSessions = [];
+  let currentUserId = null;
+  let activeFilters = new Set();
+  let calendarInstance = null;
+  let currentView = 'card';
+  const TODAY = new Date().toISOString().split('T')[0];
 
-    function showToast(message, isSuccess) {
-        const toastEl = document.getElementById('toast-el');
-        document.getElementById('toast-body').textContent = message;
-        toastEl.className = 'toast align-items-center border-0 text-white ' + (isSuccess ? 'bg-success' : 'bg-danger');
-        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 }).show();
+  function showToast(message, isSuccess) {
+    const toastEl = document.getElementById('toast-el');
+    document.getElementById('toast-body').textContent = message;
+    toastEl.className = 'toast align-items-center border-0 text-white ' + (isSuccess ? 'bg-success' : 'bg-danger');
+    bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 }).show();
+  }
+
+  // color bar: green > 50% seats left, yellow >= 25%, red below
+  function progressBar(enrolled, capacity) {
+    const pct = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
+    const ratio = capacity > 0 ? (capacity - enrolled) / capacity : 0;
+    const color = ratio > 0.5 ? 'bg-success' : ratio >= 0.25 ? 'bg-warning' : 'bg-danger';
+    return `
+      <div class="progress" style="height: 8px;">
+        <div class="progress-bar ${color}" role="progressbar" style="width: ${pct}%"></div>
+      </div>
+      <p class="text-muted small mb-0 mt-1">${enrolled} / ${capacity} spots filled</p>
+    `;
+  }
+
+  function updateProgress(sid, enrolled, capacity) {
+    const el = document.getElementById('progress-' + sid);
+    if (el) el.innerHTML = progressBar(enrolled, capacity);
+  }
+
+  function openModal(sid) {
+    const session = allSessions.find(s => (s._id || s.id) === sid);
+    if (!session) return;
+
+    const isPast = session.date < TODAY;
+    const statusBadge = isPast
+      ? '<span class="badge bg-secondary">Past</span>'
+      : '<span class="badge bg-success">Upcoming</span>';
+    const typeBadge = session.type === 'online'
+      ? '<span class="badge bg-success">Online</span>'
+      : '<span class="badge bg-info text-dark">In-Person</span>';
+
+    document.getElementById('modal-course').textContent = session.course;
+    document.getElementById('modal-badges').innerHTML = statusBadge + ' ' + typeBadge;
+    document.getElementById('modal-host').textContent = session.host;
+    document.getElementById('modal-datetime').textContent = session.date + '  |  ' + session.time;
+
+    const locationEl = document.getElementById('modal-location');
+    if (session.type === 'online') {
+      locationEl.innerHTML = `<a href="${session.location}" target="_blank" rel="noopener noreferrer">${session.location}</a>`;
+    } else {
+      locationEl.textContent = session.location;
     }
 
-    function progressBar(enrolled, capacity) {
-        const pct = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
-        const ratio = capacity > 0 ? (capacity - enrolled) / capacity : 0;
-        const color = ratio > 0.5 ? 'bg-success' : ratio >= 0.25 ? 'bg-warning' : 'bg-danger';
-        return `
-            <div class="progress" style="height: 8px;">
-                <div class="progress-bar ${color}" role="progressbar" style="width: ${pct}%"></div>
+    document.getElementById('modal-progress').innerHTML = progressBar(session.enrolled_count, session.capacity);
+    document.getElementById('modal-action').innerHTML = modalActionBtn(sid, session);
+
+    const modalEl = document.getElementById('session-modal');
+    modalEl.dataset.sid = sid;
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  function modalActionBtn(sid, session) {
+    const isPast = session.date < TODAY;
+    const isFull = session.enrolled_count >= session.capacity;
+    const isHost = session.host === getUsername();
+    const isEnrolled = currentUserId && (session.enrolled_users || []).includes(currentUserId);
+
+    if (!isLoggedIn()) return '<a href="login.html" class="btn btn-outline-primary">Login to join</a>';
+    if (isHost) return '<span class="badge bg-secondary p-2 fs-6">Your session</span>';
+    if (isEnrolled) return `<button class="btn btn-outline-danger" onclick="handleLeave('${sid}')">Leave</button>`;
+    if (isPast) return '<button class="btn btn-secondary" disabled>Past</button>';
+    if (isFull) return '<button class="btn btn-secondary" disabled>Full</button>';
+    return `<button class="btn btn-primary" onclick="handleJoin('${sid}')">Join</button>`;
+  }
+
+  // only update if the modal is currently open and showing this specific session
+  function updateModalIfOpen(sid) {
+    const modalEl = document.getElementById('session-modal');
+    if (!modalEl.classList.contains('show') || modalEl.dataset.sid !== sid) return;
+    const session = allSessions.find(s => (s._id || s.id) === sid);
+    if (!session) return;
+    document.getElementById('modal-progress').innerHTML = progressBar(session.enrolled_count, session.capacity);
+    document.getElementById('modal-action').innerHTML = modalActionBtn(sid, session);
+  }
+
+  async function init() {
+    if (isLoggedIn()) {
+      const res = await fetch(BASE_URL + '/users/me', { headers: authHeaders() });
+      if (res.ok) {
+        const me = await res.json();
+        currentUserId = me.id;
+      }
+    }
+
+    await loadSessions();
+
+    document.getElementById('search-input').addEventListener('input', function () {
+      applyView(this.value.trim().toLowerCase());
+    });
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const filter = this.dataset.filter;
+        if (filter === 'all') {
+          activeFilters.clear();
+        } else {
+          if (activeFilters.has(filter)) activeFilters.delete(filter);
+          else activeFilters.add(filter);
+        }
+        document.querySelectorAll('.filter-btn').forEach(b => {
+          const f = b.dataset.filter;
+          const on = f === 'all' ? activeFilters.size === 0 : activeFilters.has(f);
+          b.className = 'btn btn-sm filter-btn ' + (on ? 'btn-primary' : 'btn-outline-secondary');
+        });
+        applyView(document.getElementById('search-input').value.trim().toLowerCase());
+      });
+    });
+
+    document.getElementById('btn-card-view').addEventListener('click', function () {
+      currentView = 'card';
+      this.className = 'btn btn-sm btn-primary';
+      document.getElementById('btn-calendar-view').className = 'btn btn-sm btn-outline-secondary';
+      document.getElementById('sessions-container').classList.remove('d-none');
+      document.getElementById('calendar').classList.add('d-none');
+      renderSessions(document.getElementById('search-input').value.trim().toLowerCase());
+    });
+
+    document.getElementById('btn-calendar-view').addEventListener('click', function () {
+      currentView = 'calendar';
+      this.className = 'btn btn-sm btn-primary';
+      document.getElementById('btn-card-view').className = 'btn btn-sm btn-outline-secondary';
+      document.getElementById('sessions-container').classList.add('d-none');
+      document.getElementById('calendar').classList.remove('d-none');
+      showCalendarView(document.getElementById('search-input').value.trim().toLowerCase());
+    });
+  }
+
+  async function loadSessions() {
+    const res = await fetch(BASE_URL + '/sessions');
+    if (!res.ok) return;
+    allSessions = await res.json();
+    applyView('');
+  }
+
+  function getFilteredSessions(search) {
+    let displayed = search
+      ? allSessions.filter(s => s.course.toLowerCase().includes(search))
+      : allSessions.slice();
+
+    if (activeFilters.has('online'))    displayed = displayed.filter(s => s.type === 'online');
+    if (activeFilters.has('in-person')) displayed = displayed.filter(s => s.type === 'in-person');
+    if (activeFilters.has('upcoming'))  displayed = displayed.filter(s => s.date >= TODAY);
+    if (activeFilters.has('available')) displayed = displayed.filter(s => s.enrolled_count < s.capacity);
+
+    return displayed;
+  }
+
+  function renderSessions(search) {
+    const container = document.getElementById('sessions-container');
+    const noSessions = document.getElementById('no-sessions');
+    const noResults = document.getElementById('no-results');
+
+    noSessions.classList.add('d-none');
+    noResults.classList.add('d-none');
+
+    if (allSessions.length === 0) {
+      noSessions.classList.remove('d-none');
+      return;
+    }
+
+    const displayed = getFilteredSessions(search);
+
+    if (displayed.length === 0) {
+      container.innerHTML = '';
+      noResults.classList.remove('d-none');
+      return;
+    }
+
+    container.innerHTML = displayed.map((s, i) => renderCard(s, i)).join('');
+  }
+
+  function showCalendarView(search) {
+    const calEl = document.getElementById('calendar');
+    document.getElementById('no-sessions').classList.add('d-none');
+    document.getElementById('no-results').classList.add('d-none');
+
+    if (calendarInstance) {
+      calendarInstance.destroy();
+      calendarInstance = null;
+    }
+
+    const displayed = getFilteredSessions(search);
+
+    const events = displayed.map(s => {
+      const sid = s._id || s.id;
+      return {
+        id: sid,
+        title: s.course,
+        start: s.date + 'T' + s.time,
+        color: s.type === 'online' ? '#0d6efd' : '#198754',
+        extendedProps: { sid }
+      };
+    });
+
+    calendarInstance = new FullCalendar.Calendar(calEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,listWeek'
+      },
+      height: 'auto',
+      slotMinTime: '07:00:00',
+      scrollTime: '07:00:00',
+      events: events,
+      eventClick: function (info) {
+        openModal(info.event.extendedProps.sid);
+      }
+    });
+    calendarInstance.render();
+  }
+
+  function applyView(search) {
+    if (currentView === 'calendar') {
+      showCalendarView(search);
+    } else {
+      renderSessions(search);
+    }
+  }
+
+  function renderCard(session, index = 0) {
+    const sid = session._id || session.id;
+    const spotsLeft = session.capacity - session.enrolled_count;
+    const isFull = spotsLeft <= 0;
+    const isPast = session.date < TODAY;
+    const isHost = session.host === getUsername();
+    const isEnrolled = currentUserId && (session.enrolled_users || []).includes(currentUserId);
+
+    const statusBadge = isPast
+      ? '<span class="badge bg-secondary">Past</span>'
+      : '<span class="badge bg-success">Upcoming</span>';
+
+    const typeBadge = session.type === 'online'
+      ? '<span class="badge bg-success">Online</span>'
+      : '<span class="badge bg-info text-dark">In-Person</span>';
+
+    let actionBtn = '';
+    if (!isLoggedIn()) {
+      actionBtn = '<a href="login.html" class="btn btn-outline-primary btn-sm">Login to join</a>';
+    } else if (isHost) {
+      actionBtn = '<span class="badge bg-secondary">Your session</span>';
+    } else if (isEnrolled) {
+      actionBtn = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
+    } else if (isPast) {
+      actionBtn = '<button class="btn btn-secondary btn-sm" disabled>Past</button>';
+    } else if (isFull) {
+      actionBtn = '<button class="btn btn-secondary btn-sm" disabled>Full</button>';
+    } else {
+      actionBtn = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
+    }
+
+    return `
+      <div class="col-md-6 col-lg-4" id="card-${sid}" style="--anim-delay: ${index * 80}ms">
+        <div class="card h-100 shadow-sm${isPast ? ' is-past' : ''}"${isPast ? '' : ` onclick="openModal('${sid}')" style="cursor: pointer"`}>
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <h5 class="card-title mb-0">${session.course}</h5>
+              <div class="d-flex gap-1 flex-wrap justify-content-end">
+                ${statusBadge}
+                ${typeBadge}
+              </div>
             </div>
-            <p class="text-muted small mb-0 mt-1">${enrolled} / ${capacity} spots filled</p>
-        `;
-    }
-
-    function updateProgress(sid, enrolled, capacity) {
-        const el = document.getElementById('progress-' + sid);
-        if (el) el.innerHTML = progressBar(enrolled, capacity);
-    }
-
-    function openModal(sid) {
-        const session = allSessions.find(s => (s._id || s.id) === sid);
-        if (!session) return;
-
-        const isPast = session.date < TODAY;
-        const statusBadge = isPast
-            ? '<span class="badge bg-secondary">Past</span>'
-            : '<span class="badge bg-success">Upcoming</span>';
-        const typeBadge = session.type === 'online'
-            ? '<span class="badge bg-success">Online</span>'
-            : '<span class="badge bg-info text-dark">In-Person</span>';
-
-        document.getElementById('modal-course').textContent = session.course;
-        document.getElementById('modal-badges').innerHTML = statusBadge + ' ' + typeBadge;
-        document.getElementById('modal-host').textContent = session.host;
-        document.getElementById('modal-datetime').textContent = session.date + '  |  ' + session.time;
-
-        const locationEl = document.getElementById('modal-location');
-        if (session.type === 'online') {
-            locationEl.innerHTML = `<a href="${session.location}" target="_blank" rel="noopener noreferrer">${session.location}</a>`;
-        } else {
-            locationEl.textContent = session.location;
-        }
-
-        document.getElementById('modal-progress').innerHTML = progressBar(session.enrolled_count, session.capacity);
-        document.getElementById('modal-action').innerHTML = modalActionBtn(sid, session);
-
-        const modalEl = document.getElementById('session-modal');
-        modalEl.dataset.sid = sid;
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
-    }
-
-    function modalActionBtn(sid, session) {
-        const isPast = session.date < TODAY;
-        const isFull = session.enrolled_count >= session.capacity;
-        const isHost = session.host === getUsername();
-        const isEnrolled = currentUserId && (session.enrolled_users || []).includes(currentUserId);
-
-        if (!isLoggedIn()) return '<a href="login.html" class="btn btn-outline-primary">Login to join</a>';
-        if (isHost) return '<span class="badge bg-secondary p-2 fs-6">Your session</span>';
-        if (isEnrolled) return `<button class="btn btn-outline-danger" onclick="handleLeave('${sid}')">Leave</button>`;
-        if (isPast) return '<button class="btn btn-secondary" disabled>Past</button>';
-        if (isFull) return '<button class="btn btn-secondary" disabled>Full</button>';
-        return `<button class="btn btn-primary" onclick="handleJoin('${sid}')">Join</button>`;
-    }
-
-    function updateModalIfOpen(sid) {
-        const modalEl = document.getElementById('session-modal');
-        if (!modalEl.classList.contains('show') || modalEl.dataset.sid !== sid) return;
-        const session = allSessions.find(s => (s._id || s.id) === sid);
-        if (!session) return;
-        document.getElementById('modal-progress').innerHTML = progressBar(session.enrolled_count, session.capacity);
-        document.getElementById('modal-action').innerHTML = modalActionBtn(sid, session);
-    }
-
-    async function init() {
-        if (isLoggedIn()) {
-            const res = await fetch(BASE_URL + '/users/me', { headers: authHeaders() });
-            if (res.ok) {
-                const me = await res.json();
-                currentUserId = me.id;
-            }
-        }
-
-        await loadSessions();
-
-        document.getElementById('search-input').addEventListener('input', function () {
-            applyView(this.value.trim().toLowerCase());
-        });
-
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const filter = this.dataset.filter;
-                if (filter === 'all') {
-                    activeFilters.clear();
-                } else {
-                    if (activeFilters.has(filter)) activeFilters.delete(filter);
-                    else activeFilters.add(filter);
-                }
-                document.querySelectorAll('.filter-btn').forEach(b => {
-                    const f = b.dataset.filter;
-                    const on = f === 'all' ? activeFilters.size === 0 : activeFilters.has(f);
-                    b.className = 'btn btn-sm filter-btn ' + (on ? 'btn-primary' : 'btn-outline-secondary');
-                });
-                applyView(document.getElementById('search-input').value.trim().toLowerCase());
-            });
-        });
-
-        document.getElementById('btn-card-view').addEventListener('click', function () {
-            currentView = 'card';
-            this.className = 'btn btn-sm btn-primary';
-            document.getElementById('btn-calendar-view').className = 'btn btn-sm btn-outline-secondary';
-            document.getElementById('sessions-container').classList.remove('d-none');
-            document.getElementById('calendar').classList.add('d-none');
-            renderSessions(document.getElementById('search-input').value.trim().toLowerCase());
-        });
-
-        document.getElementById('btn-calendar-view').addEventListener('click', function () {
-            currentView = 'calendar';
-            this.className = 'btn btn-sm btn-primary';
-            document.getElementById('btn-card-view').className = 'btn btn-sm btn-outline-secondary';
-            document.getElementById('sessions-container').classList.add('d-none');
-            document.getElementById('calendar').classList.remove('d-none');
-            showCalendarView(document.getElementById('search-input').value.trim().toLowerCase());
-        });
-    }
-
-    async function loadSessions() {
-        const res = await fetch(BASE_URL + '/sessions');
-        if (!res.ok) return;
-        allSessions = await res.json();
-        applyView('');
-    }
-
-    function getFilteredSessions(search) {
-        let displayed = search
-            ? allSessions.filter(s => s.course.toLowerCase().includes(search))
-            : allSessions.slice();
-
-        if (activeFilters.has('online'))    displayed = displayed.filter(s => s.type === 'online');
-        if (activeFilters.has('in-person')) displayed = displayed.filter(s => s.type === 'in-person');
-        if (activeFilters.has('upcoming'))  displayed = displayed.filter(s => s.date >= TODAY);
-        if (activeFilters.has('available')) displayed = displayed.filter(s => s.enrolled_count < s.capacity);
-
-        return displayed;
-    }
-
-    function renderSessions(search) {
-        const container = document.getElementById('sessions-container');
-        const noSessions = document.getElementById('no-sessions');
-        const noResults = document.getElementById('no-results');
-
-        noSessions.classList.add('d-none');
-        noResults.classList.add('d-none');
-
-        if (allSessions.length === 0) {
-            noSessions.classList.remove('d-none');
-            return;
-        }
-
-        const displayed = getFilteredSessions(search);
-
-        if (displayed.length === 0) {
-            container.innerHTML = '';
-            noResults.classList.remove('d-none');
-            return;
-        }
-
-        container.innerHTML = displayed.map((s, i) => renderCard(s, i)).join('');
-    }
-
-    function showCalendarView(search) {
-        const calEl = document.getElementById('calendar');
-        document.getElementById('no-sessions').classList.add('d-none');
-        document.getElementById('no-results').classList.add('d-none');
-
-        if (calendarInstance) {
-            calendarInstance.destroy();
-            calendarInstance = null;
-        }
-
-        const displayed = getFilteredSessions(search);
-
-        const events = displayed.map(s => {
-            const sid = s._id || s.id;
-            return {
-                id: sid,
-                title: s.course,
-                start: s.date + 'T' + s.time,
-                color: s.type === 'online' ? '#0d6efd' : '#198754',
-                extendedProps: { sid }
-            };
-        });
-
-        calendarInstance = new FullCalendar.Calendar(calEl, {
-            initialView: 'dayGridMonth',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,listWeek'
-            },
-            height: 'auto',
-            slotMinTime: '07:00:00',
-            scrollTime: '07:00:00',
-            events: events,
-            eventClick: function (info) {
-                openModal(info.event.extendedProps.sid);
-            }
-        });
-        calendarInstance.render();
-    }
-
-    function applyView(search) {
-        if (currentView === 'calendar') {
-            showCalendarView(search);
-        } else {
-            renderSessions(search);
-        }
-    }
-
-    function renderCard(session, index = 0) {
-        const sid = session._id || session.id;
-        const spotsLeft = session.capacity - session.enrolled_count;
-        const isFull = spotsLeft <= 0;
-        const isPast = session.date < TODAY;
-        const isHost = session.host === getUsername();
-        const isEnrolled = currentUserId && (session.enrolled_users || []).includes(currentUserId);
-
-        const statusBadge = isPast
-            ? '<span class="badge bg-secondary">Past</span>'
-            : '<span class="badge bg-success">Upcoming</span>';
-
-        const typeBadge = session.type === 'online'
-            ? '<span class="badge bg-success">Online</span>'
-            : '<span class="badge bg-info text-dark">In-Person</span>';
-
-        let actionBtn = '';
-        if (!isLoggedIn()) {
-            actionBtn = '<a href="login.html" class="btn btn-outline-primary btn-sm">Login to join</a>';
-        } else if (isHost) {
-            actionBtn = '<span class="badge bg-secondary">Your session</span>';
-        } else if (isEnrolled) {
-            actionBtn = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
-        } else if (isPast) {
-            actionBtn = '<button class="btn btn-secondary btn-sm" disabled>Past</button>';
-        } else if (isFull) {
-            actionBtn = '<button class="btn btn-secondary btn-sm" disabled>Full</button>';
-        } else {
-            actionBtn = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
-        }
-
-        return `
-            <div class="col-md-6 col-lg-4" id="card-${sid}" style="--anim-delay: ${index * 80}ms">
-                <div class="card h-100 shadow-sm${isPast ? ' is-past' : ''}"${isPast ? '' : ` onclick="openModal('${sid}')" style="cursor: pointer"`}>
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0">${session.course}</h5>
-                            <div class="d-flex gap-1 flex-wrap justify-content-end">
-                                ${statusBadge}
-                                ${typeBadge}
-                            </div>
-                        </div>
-                        <p class="text-muted small mb-1">Hosted by <strong>${session.host}</strong></p>
-                        <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
-                        <p class="card-text text-muted small text-truncate mb-2">${session.location}</p>
-                        <div class="mb-3" id="progress-${sid}">
-                            ${progressBar(session.enrolled_count, session.capacity)}
-                        </div>
-                        <div class="mt-auto d-flex justify-content-end" onclick="event.stopPropagation()">
-                            <div id="btn-${sid}">${actionBtn}</div>
-                        </div>
-                    </div>
-                </div>
+            <p class="text-muted small mb-1">Hosted by <strong>${session.host}</strong></p>
+            <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
+            <p class="card-text text-muted small text-truncate mb-2">${session.location}</p>
+            <div class="mb-3" id="progress-${sid}">
+              ${progressBar(session.enrolled_count, session.capacity)}
             </div>
-        `;
+            <div class="mt-auto d-flex justify-content-end" onclick="event.stopPropagation()">
+              <div id="btn-${sid}">${actionBtn}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function handleJoin(sid) {
+    const btnEl = document.getElementById('btn-' + sid);
+    btnEl.innerHTML = '<button class="btn btn-primary btn-sm" disabled>Joining...</button>';
+
+    const res = await fetch(BASE_URL + '/sessions/' + sid + '/join', {
+      method: 'POST',
+      headers: authHeaders()
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast(data.detail || 'Could not join session.', false);
+      btnEl.innerHTML = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
+      return;
     }
 
-    async function handleJoin(sid) {
-        const btnEl = document.getElementById('btn-' + sid);
-        btnEl.innerHTML = '<button class="btn btn-primary btn-sm" disabled>Joining...</button>';
-
-        const res = await fetch(BASE_URL + '/sessions/' + sid + '/join', {
-            method: 'POST',
-            headers: authHeaders()
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            showToast(data.detail || 'Could not join session.', false);
-            btnEl.innerHTML = `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
-            return;
-        }
-
-        const session = allSessions.find(s => (s._id || s.id) === sid);
-        if (session) {
-            session.enrolled_count = data.enrolled_count;
-            if (!session.enrolled_users) session.enrolled_users = [];
-            session.enrolled_users.push(currentUserId);
-        }
-
-        updateProgress(sid, data.enrolled_count, session.capacity);
-        btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
-        updateModalIfOpen(sid);
-        showToast('Successfully joined the session!', true);
+    const session = allSessions.find(s => (s._id || s.id) === sid);
+    if (session) {
+      session.enrolled_count = data.enrolled_count;
+      if (!session.enrolled_users) session.enrolled_users = [];
+      session.enrolled_users.push(currentUserId);
     }
 
-    async function handleLeave(sid) {
-        const btnEl = document.getElementById('btn-' + sid);
-        btnEl.innerHTML = '<button class="btn btn-outline-danger btn-sm" disabled>Leaving...</button>';
+    updateProgress(sid, data.enrolled_count, session.capacity);
+    btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
+    updateModalIfOpen(sid);
+    showToast('Successfully joined the session!', true);
+  }
 
-        const res = await fetch(BASE_URL + '/sessions/' + sid + '/leave', {
-            method: 'POST',
-            headers: authHeaders()
-        });
-        const data = await res.json();
+  async function handleLeave(sid) {
+    const btnEl = document.getElementById('btn-' + sid);
+    btnEl.innerHTML = '<button class="btn btn-outline-danger btn-sm" disabled>Leaving...</button>';
 
-        if (!res.ok) {
-            showToast(data.detail || 'Could not leave session.', false);
-            btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
-            return;
-        }
+    const res = await fetch(BASE_URL + '/sessions/' + sid + '/leave', {
+      method: 'POST',
+      headers: authHeaders()
+    });
+    const data = await res.json();
 
-        const session = allSessions.find(s => (s._id || s.id) === sid);
-        if (session) {
-            session.enrolled_count = data.enrolled_count;
-            session.enrolled_users = (session.enrolled_users || []).filter(id => id !== currentUserId);
-        }
-
-        updateProgress(sid, data.enrolled_count, session.capacity);
-        const isPast = session.date < TODAY;
-        const isFull = session.capacity - data.enrolled_count <= 0;
-        btnEl.innerHTML = (isPast || isFull)
-            ? `<button class="btn btn-secondary btn-sm" disabled>${isPast ? 'Past' : 'Full'}</button>`
-            : `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
-        updateModalIfOpen(sid);
-        showToast('Successfully left the session.', true);
+    if (!res.ok) {
+      showToast(data.detail || 'Could not leave session.', false);
+      btnEl.innerHTML = `<button class="btn btn-outline-danger btn-sm" onclick="handleLeave('${sid}')">Leave</button>`;
+      return;
     }
 
-    init();
+    const session = allSessions.find(s => (s._id || s.id) === sid);
+    if (session) {
+      session.enrolled_count = data.enrolled_count;
+      session.enrolled_users = (session.enrolled_users || []).filter(id => id !== currentUserId);
+    }
+
+    updateProgress(sid, data.enrolled_count, session.capacity);
+    const isPast = session.date < TODAY;
+    const isFull = session.capacity - data.enrolled_count <= 0;
+    btnEl.innerHTML = (isPast || isFull)
+      ? `<button class="btn btn-secondary btn-sm" disabled>${isPast ? 'Past' : 'Full'}</button>`
+      : `<button class="btn btn-primary btn-sm" onclick="handleJoin('${sid}')">Join</button>`;
+    updateModalIfOpen(sid);
+    showToast('Successfully left the session.', true);
+  }
+
+  init();
 </script>
 
 </body>

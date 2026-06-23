@@ -94,96 +94,96 @@
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
 <script>
-    if (!isLoggedIn()) {
-        window.location.href = 'login.html';
-    }
+  if (!isLoggedIn()) {
+    window.location.href = 'login.html';
+  }
 
-    function validatePostForm() {
-        const course = document.getElementById('course').value.trim();
-        const type = document.getElementById('type').value;
-        const location = document.getElementById('location').value.trim();
-        const date = document.getElementById('date').value;
-        const time = document.getElementById('time').value;
-        const capacity = document.getElementById('capacity').value;
+  function validatePostForm() {
+    const course = document.getElementById('course').value.trim();
+    const type = document.getElementById('type').value;
+    const location = document.getElementById('location').value.trim();
+    const date = document.getElementById('date').value;
+    const time = document.getElementById('time').value;
+    const capacity = document.getElementById('capacity').value;
 
-        ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
-            document.getElementById('err-' + f).textContent = '';
-        });
-
-        const today = new Date().toISOString().split('T')[0];
-        let valid = true;
-
-        if (!course || course.length < 2) {
-            document.getElementById('err-course').textContent = 'Course must be at least 2 characters.';
-            valid = false;
-        }
-        if (!type || !['online', 'in-person'].includes(type)) {
-            document.getElementById('err-type').textContent = 'Please select a session type.';
-            valid = false;
-        }
-        if (!location || location.length < 3) {
-            document.getElementById('err-location').textContent = 'Location must be at least 3 characters.';
-            valid = false;
-        }
-        if (!date) {
-            document.getElementById('err-date').textContent = 'Date is required.';
-            valid = false;
-        } else if (date < today) {
-            document.getElementById('err-date').textContent = 'Date must be today or in the future.';
-            valid = false;
-        }
-        if (!time) {
-            document.getElementById('err-time').textContent = 'Time is required.';
-            valid = false;
-        }
-        const cap = parseInt(capacity);
-        if (!capacity) {
-            document.getElementById('err-capacity').textContent = 'Capacity is required.';
-            valid = false;
-        } else if (isNaN(cap) || cap < 1) {
-            document.getElementById('err-capacity').textContent = 'Capacity must be at least 1.';
-            valid = false;
-        } else if (cap > 50) {
-            document.getElementById('err-capacity').textContent = 'Capacity cannot exceed 50.';
-            valid = false;
-        }
-
-        return valid;
-    }
-
-    document.getElementById('post-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
-
-        if (!validatePostForm()) return;
-
-        const errorMsg = document.getElementById('error-msg');
-        errorMsg.classList.add('d-none');
-
-        const body = {
-            course: document.getElementById('course').value.trim(),
-            type: document.getElementById('type').value,
-            location: document.getElementById('location').value.trim(),
-            date: document.getElementById('date').value,
-            time: document.getElementById('time').value,
-            capacity: parseInt(document.getElementById('capacity').value)
-        };
-
-        const res = await fetch(BASE_URL + '/sessions', {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify(body)
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-            errorMsg.textContent = data.detail || 'Failed to post session. Please try again.';
-            errorMsg.classList.remove('d-none');
-            return;
-        }
-
-        window.location.href = 'sessions.html';
+    ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
+      document.getElementById('err-' + f).textContent = '';
     });
+
+    const today = new Date().toISOString().split('T')[0];
+    let valid = true;
+
+    if (!course || course.length < 2) {
+      document.getElementById('err-course').textContent = 'Course must be at least 2 characters.';
+      valid = false;
+    }
+    if (!type || !['online', 'in-person'].includes(type)) {
+      document.getElementById('err-type').textContent = 'Please select a session type.';
+      valid = false;
+    }
+    if (!location || location.length < 3) {
+      document.getElementById('err-location').textContent = 'Location must be at least 3 characters.';
+      valid = false;
+    }
+    if (!date) {
+      document.getElementById('err-date').textContent = 'Date is required.';
+      valid = false;
+    } else if (date < today) {
+      document.getElementById('err-date').textContent = 'Date must be today or in the future.';
+      valid = false;
+    }
+    if (!time) {
+      document.getElementById('err-time').textContent = 'Time is required.';
+      valid = false;
+    }
+    const cap = parseInt(capacity);
+    if (!capacity) {
+      document.getElementById('err-capacity').textContent = 'Capacity is required.';
+      valid = false;
+    } else if (isNaN(cap) || cap < 1) {
+      document.getElementById('err-capacity').textContent = 'Capacity must be at least 1.';
+      valid = false;
+    } else if (cap > 50) {
+      document.getElementById('err-capacity').textContent = 'Capacity cannot exceed 50.';
+      valid = false;
+    }
+
+    return valid;
+  }
+
+  document.getElementById('post-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    if (!validatePostForm()) return;
+
+    const errorMsg = document.getElementById('error-msg');
+    errorMsg.classList.add('d-none');
+
+    const body = {
+      course: document.getElementById('course').value.trim(),
+      type: document.getElementById('type').value,
+      location: document.getElementById('location').value.trim(),
+      date: document.getElementById('date').value,
+      time: document.getElementById('time').value,
+      capacity: parseInt(document.getElementById('capacity').value)
+    };
+
+    const res = await fetch(BASE_URL + '/sessions', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.textContent = data.detail || 'Failed to post session. Please try again.';
+      errorMsg.classList.remove('d-none');
+      return;
+    }
+
+    window.location.href = 'sessions.html';
+  });
 </script>
 
 </body>

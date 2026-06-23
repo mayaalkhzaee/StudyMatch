@@ -131,214 +131,215 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
-    const CHART_ANIM = { duration: 1000, easing: 'easeInOutQuart' };
-    const PALETTE = [
-        'rgba(13, 110, 253, 0.75)',
-        'rgba(111, 66, 193, 0.75)',
-        'rgba(214, 51, 132, 0.75)',
-        'rgba(220, 53, 69, 0.75)',
-        'rgba(253, 126, 20, 0.75)',
-        'rgba(255, 193, 7, 0.75)',
-        'rgba(25, 135, 84, 0.75)',
-        'rgba(13, 202, 240, 0.75)',
-        'rgba(102, 16, 242, 0.75)',
-        'rgba(32, 201, 151, 0.75)',
-    ];
+  const CHART_ANIM = { duration: 1000, easing: 'easeInOutQuart' };
+  const PALETTE = [
+    'rgba(13, 110, 253, 0.75)',
+    'rgba(111, 66, 193, 0.75)',
+    'rgba(214, 51, 132, 0.75)',
+    'rgba(220, 53, 69, 0.75)',
+    'rgba(253, 126, 20, 0.75)',
+    'rgba(255, 193, 7, 0.75)',
+    'rgba(25, 135, 84, 0.75)',
+    'rgba(13, 202, 240, 0.75)',
+    'rgba(102, 16, 242, 0.75)',
+    'rgba(32, 201, 151, 0.75)',
+  ];
 
-    async function init() {
-        let data = { top_courses: [], sessions_per_week: [], top_participants: [] };
-        let sessions = [];
+  async function init() {
+    let data = { top_courses: [], sessions_per_week: [], top_participants: [] };
+    let sessions = [];
 
-        try {
-            const [statsRes, sessionsRes] = await Promise.all([
-                fetch(BASE_URL + '/stats'),
-                fetch(BASE_URL + '/sessions')
-            ]);
-            if (statsRes.ok) data = await statsRes.json();
-            if (sessionsRes.ok) sessions = await sessionsRes.json();
-        } catch (e) {}
+    try {
+      // fetch both endpoints at the same time
+      const [statsRes, sessionsRes] = await Promise.all([
+        fetch(BASE_URL + '/stats'),
+        fetch(BASE_URL + '/sessions')
+      ]);
+      if (statsRes.ok) data = await statsRes.json();
+      if (sessionsRes.ok) sessions = await sessionsRes.json();
+    } catch (e) {}
 
-        document.getElementById('loading').classList.add('d-none');
-        document.getElementById('stats-content').classList.remove('d-none');
+    document.getElementById('loading').classList.add('d-none');
+    document.getElementById('stats-content').classList.remove('d-none');
 
-        renderSummaryCards(data);
-        renderTopCourses(data.top_courses || []);
-        renderSessionsPerDay(data.sessions_per_week || []);
-        renderSessionTypes(sessions);
-        renderTopParticipants(data.top_participants || []);
+    renderSummaryCards(data);
+    renderTopCourses(data.top_courses || []);
+    renderSessionsPerDay(data.sessions_per_week || []);
+    renderSessionTypes(sessions);
+    renderTopParticipants(data.top_participants || []);
+  }
+
+  function renderSummaryCards(data) {
+    const courses = data.top_courses || [];
+    const totalSessions = courses.reduce((sum, c) => sum + c.session_count, 0);
+    const top = (data.top_participants || [])[0];
+    document.getElementById('stat-total-sessions').textContent = totalSessions || '—';
+    document.getElementById('stat-total-courses').textContent = courses.length || '—';
+    document.getElementById('stat-top-participant').textContent = top ? top.username : '—';
+  }
+
+  function renderTopCourses(data) {
+    const container = document.getElementById('top-courses-container');
+    if (!data.length) {
+      container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
+      return;
     }
-
-    function renderSummaryCards(data) {
-        const courses = data.top_courses || [];
-        const totalSessions = courses.reduce((sum, c) => sum + c.session_count, 0);
-        const top = (data.top_participants || [])[0];
-        document.getElementById('stat-total-sessions').textContent = totalSessions || '—';
-        document.getElementById('stat-total-courses').textContent = courses.length || '—';
-        document.getElementById('stat-top-participant').textContent = top ? top.username : '—';
-    }
-
-    function renderTopCourses(data) {
-        const container = document.getElementById('top-courses-container');
-        if (!data.length) {
-            container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
-            return;
+    container.innerHTML = '<canvas id="top-courses-chart"></canvas>';
+    new Chart(document.getElementById('top-courses-chart'), {
+      type: 'bar',
+      data: {
+        labels: data.map(c => c.course),
+        datasets: [{
+          label: 'Sessions',
+          data: data.map(c => c.session_count),
+          backgroundColor: data.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderColor: data.map((_, i) => PALETTE[i % PALETTE.length].replace('0.75', '1')),
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: CHART_ANIM,
+        plugins: {
+          legend: { display: false },
+          datalabels: { anchor: 'end', align: 'end', font: { weight: 'bold' } }
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { stepSize: 1 } }
         }
-        container.innerHTML = '<canvas id="top-courses-chart"></canvas>';
-        new Chart(document.getElementById('top-courses-chart'), {
-            type: 'bar',
-            data: {
-                labels: data.map(c => c.course),
-                datasets: [{
-                    label: 'Sessions',
-                    data: data.map(c => c.session_count),
-                    backgroundColor: data.map((_, i) => PALETTE[i % PALETTE.length]),
-                    borderColor: data.map((_, i) => PALETTE[i % PALETTE.length].replace('0.75', '1')),
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: CHART_ANIM,
-                plugins: {
-                    legend: { display: false },
-                    datalabels: { anchor: 'end', align: 'end', font: { weight: 'bold' } }
-                },
-                scales: {
-                    x: { beginAtZero: true, ticks: { stepSize: 1 } }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-    }
+      },
+      plugins: [ChartDataLabels]
+    });
+  }
 
-    function renderSessionsPerDay(data) {
-        const container = document.getElementById('sessions-per-day-container');
-        if (!data.length) {
-            container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
-            return;
+  function renderSessionsPerDay(data) {
+    const container = document.getElementById('sessions-per-day-container');
+    if (!data.length) {
+      container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
+      return;
+    }
+    container.innerHTML = '<canvas id="sessions-per-day-chart"></canvas>';
+    new Chart(document.getElementById('sessions-per-day-chart'), {
+      type: 'line',
+      data: {
+        labels: data.map(d => d.week),
+        datasets: [{
+          label: 'Sessions',
+          data: data.map(d => d.count),
+          borderColor: 'rgba(25, 135, 84, 1)',
+          backgroundColor: 'rgba(25, 135, 84, 0.15)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: 'rgba(25, 135, 84, 1)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: CHART_ANIM,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
         }
-        container.innerHTML = '<canvas id="sessions-per-day-chart"></canvas>';
-        new Chart(document.getElementById('sessions-per-day-chart'), {
-            type: 'line',
-            data: {
-                labels: data.map(d => d.week),
-                datasets: [{
-                    label: 'Sessions',
-                    data: data.map(d => d.count),
-                    borderColor: 'rgba(25, 135, 84, 1)',
-                    backgroundColor: 'rgba(25, 135, 84, 0.15)',
-                    borderWidth: 2,
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgba(25, 135, 84, 1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: CHART_ANIM,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
-                }
-            }
-        });
+      }
+    });
+  }
+
+  function renderSessionTypes(sessions) {
+    const container = document.getElementById('session-types-container');
+    if (!sessions.length) {
+      container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
+      return;
+    }
+    const online = sessions.filter(s => s.type === 'online').length;
+    const inPerson = sessions.filter(s => s.type === 'in-person').length;
+    container.innerHTML = '<canvas id="session-types-chart"></canvas>';
+    new Chart(document.getElementById('session-types-chart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Online', 'In-Person'],
+        datasets: [{
+          data: [online, inPerson],
+          backgroundColor: ['rgba(13, 110, 253, 0.8)', 'rgba(25, 135, 84, 0.8)'],
+          borderColor: ['rgba(13, 110, 253, 1)', 'rgba(25, 135, 84, 1)'],
+          borderWidth: 2,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: CHART_ANIM,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
+
+  function renderTopParticipants(data) {
+    const chartContainer = document.getElementById('participants-chart-container');
+    const tableContainer = document.getElementById('participants-table-container');
+
+    if (!data.length) {
+      chartContainer.innerHTML = '';
+      tableContainer.innerHTML = '<p class="text-muted text-center py-3">No data yet.</p>';
+      return;
     }
 
-    function renderSessionTypes(sessions) {
-        const container = document.getElementById('session-types-container');
-        if (!sessions.length) {
-            container.innerHTML = '<p class="text-muted text-center py-4">No data yet.</p>';
-            return;
+    chartContainer.innerHTML = '<canvas id="participants-chart"></canvas>';
+    new Chart(document.getElementById('participants-chart'), {
+      type: 'bar',
+      data: {
+        labels: data.map(p => p.username),
+        datasets: [{
+          label: 'Sessions Joined',
+          data: data.map(p => p.joined_count),
+          backgroundColor: data.map((_, i) => PALETTE[i % PALETTE.length]),
+          borderColor: data.map((_, i) => PALETTE[i % PALETTE.length].replace('0.75', '1')),
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: CHART_ANIM,
+        plugins: {
+          legend: { display: false },
+          datalabels: { anchor: 'end', align: 'end', font: { weight: 'bold' } }
+        },
+        scales: {
+          x: { beginAtZero: true, ticks: { stepSize: 1 } }
         }
-        const online = sessions.filter(s => s.type === 'online').length;
-        const inPerson = sessions.filter(s => s.type === 'in-person').length;
-        container.innerHTML = '<canvas id="session-types-chart"></canvas>';
-        new Chart(document.getElementById('session-types-chart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Online', 'In-Person'],
-                datasets: [{
-                    data: [online, inPerson],
-                    backgroundColor: ['rgba(13, 110, 253, 0.8)', 'rgba(25, 135, 84, 0.8)'],
-                    borderColor: ['rgba(13, 110, 253, 1)', 'rgba(25, 135, 84, 1)'],
-                    borderWidth: 2,
-                    hoverOffset: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: CHART_ANIM,
-                plugins: { legend: { position: 'bottom' } }
-            }
-        });
-    }
+      },
+      plugins: [ChartDataLabels]
+    });
 
-    function renderTopParticipants(data) {
-        const chartContainer = document.getElementById('participants-chart-container');
-        const tableContainer = document.getElementById('participants-table-container');
+    tableContainer.innerHTML = `
+      <table class="table table-sm table-hover mb-0">
+        <thead>
+          <tr><th>#</th><th>Username</th><th>Sessions Joined</th></tr>
+        </thead>
+        <tbody>
+          ${data.map((p, i) => `
+            <tr>
+              <td class="text-muted">${i + 1}</td>
+              <td><strong>${p.username}</strong></td>
+              <td>${p.joined_count}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
 
-        if (!data.length) {
-            chartContainer.innerHTML = '';
-            tableContainer.innerHTML = '<p class="text-muted text-center py-3">No data yet.</p>';
-            return;
-        }
-
-        chartContainer.innerHTML = '<canvas id="participants-chart"></canvas>';
-        new Chart(document.getElementById('participants-chart'), {
-            type: 'bar',
-            data: {
-                labels: data.map(p => p.username),
-                datasets: [{
-                    label: 'Sessions Joined',
-                    data: data.map(p => p.joined_count),
-                    backgroundColor: data.map((_, i) => PALETTE[i % PALETTE.length]),
-                    borderColor: data.map((_, i) => PALETTE[i % PALETTE.length].replace('0.75', '1')),
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: CHART_ANIM,
-                plugins: {
-                    legend: { display: false },
-                    datalabels: { anchor: 'end', align: 'end', font: { weight: 'bold' } }
-                },
-                scales: {
-                    x: { beginAtZero: true, ticks: { stepSize: 1 } }
-                }
-            },
-            plugins: [ChartDataLabels]
-        });
-
-        tableContainer.innerHTML = `
-            <table class="table table-sm table-hover mb-0">
-                <thead>
-                    <tr><th>#</th><th>Username</th><th>Sessions Joined</th></tr>
-                </thead>
-                <tbody>
-                    ${data.map((p, i) => `
-                        <tr>
-                            <td class="text-muted">${i + 1}</td>
-                            <td><strong>${p.username}</strong></td>
-                            <td>${p.joined_count}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    }
-
-    init();
+  init();
 </script>
 
 </body>

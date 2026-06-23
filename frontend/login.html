@@ -72,69 +72,70 @@
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
 <script>
-    function validateLoginForm() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function validateLoginForm() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        document.getElementById('err-email').textContent = '';
-        document.getElementById('err-password').textContent = '';
+    document.getElementById('err-email').textContent = '';
+    document.getElementById('err-password').textContent = '';
 
-        let valid = true;
+    let valid = true;
 
-        if (!email) {
-            document.getElementById('err-email').textContent = 'Email or username is required.';
-            valid = false;
-        } else if (email.includes('@') && !emailRegex.test(email)) {
-            document.getElementById('err-email').textContent = 'Invalid email format.';
-            valid = false;
-        }
-
-        if (!password) {
-            document.getElementById('err-password').textContent = 'Password is required.';
-            valid = false;
-        } else if (password.length < 6) {
-            document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
-            valid = false;
-        }
-
-        return valid;
+    if (!email) {
+      document.getElementById('err-email').textContent = 'Email or username is required.';
+      valid = false;
+    } else if (email.includes('@') && !emailRegex.test(email)) {
+      document.getElementById('err-email').textContent = 'Invalid email format.';
+      valid = false;
     }
 
-    document.getElementById('login-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
+    if (!password) {
+      document.getElementById('err-password').textContent = 'Password is required.';
+      valid = false;
+    } else if (password.length < 6) {
+      document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
+      valid = false;
+    }
 
-        if (!validateLoginForm()) return;
+    return valid;
+  }
 
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const errorMsg = document.getElementById('error-msg');
-        errorMsg.classList.add('d-none');
+  document.getElementById('login-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
 
-        const res = await fetch(BASE_URL + '/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-        });
+    if (!validateLoginForm()) return;
 
-        const data = await res.json();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const errorMsg = document.getElementById('error-msg');
+    errorMsg.classList.add('d-none');
 
-        if (!res.ok) {
-            errorMsg.textContent = data.detail || 'Login failed. Please try again.';
-            errorMsg.classList.remove('d-none');
-            return;
-        }
-
-        localStorage.setItem('token', data.access_token);
-
-        const meRes = await fetch(BASE_URL + '/users/me', {
-            headers: { 'Authorization': 'Bearer ' + data.access_token }
-        });
-        const meData = await meRes.json();
-        localStorage.setItem('username', meData.username);
-
-        window.location.href = 'sessions.html';
+    const res = await fetch(BASE_URL + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
     });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.textContent = data.detail || 'Login failed. Please try again.';
+      errorMsg.classList.remove('d-none');
+      return;
+    }
+
+    localStorage.setItem('token', data.access_token);
+
+    // fetch username separately since the login response only returns a token
+    const meRes = await fetch(BASE_URL + '/users/me', {
+      headers: { 'Authorization': 'Bearer ' + data.access_token }
+    });
+    const meData = await meRes.json();
+    localStorage.setItem('username', meData.username);
+
+    window.location.href = 'sessions.html';
+  });
 </script>
 
 </body>

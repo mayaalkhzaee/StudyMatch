@@ -77,75 +77,75 @@
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
 <script>
-    function validateRegisterForm() {
-        const username = document.getElementById('username').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function validateRegisterForm() {
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-        document.getElementById('err-username').textContent = '';
-        document.getElementById('err-email').textContent = '';
-        document.getElementById('err-password').textContent = '';
+    document.getElementById('err-username').textContent = '';
+    document.getElementById('err-email').textContent = '';
+    document.getElementById('err-password').textContent = '';
 
-        let valid = true;
+    let valid = true;
 
-        if (!username) {
-            document.getElementById('err-username').textContent = 'Username is required.';
-            valid = false;
-        } else if (username.length < 3) {
-            document.getElementById('err-username').textContent = 'Username must be at least 3 characters.';
-            valid = false;
-        } else if (username.length > 20) {
-            document.getElementById('err-username').textContent = 'Username must be 20 characters or fewer.';
-            valid = false;
-        }
-
-        if (!email) {
-            document.getElementById('err-email').textContent = 'Email is required.';
-            valid = false;
-        } else if (!emailRegex.test(email)) {
-            document.getElementById('err-email').textContent = 'Invalid email format.';
-            valid = false;
-        }
-
-        if (!password) {
-            document.getElementById('err-password').textContent = 'Password is required.';
-            valid = false;
-        } else if (password.length < 6) {
-            document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
-            valid = false;
-        }
-
-        return valid;
+    if (!username) {
+      document.getElementById('err-username').textContent = 'Username is required.';
+      valid = false;
+    } else if (username.length < 3) {
+      document.getElementById('err-username').textContent = 'Username must be at least 3 characters.';
+      valid = false;
+    } else if (username.length > 20) {
+      document.getElementById('err-username').textContent = 'Username must be 20 characters or fewer.';
+      valid = false;
     }
 
-    document.getElementById('register-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
+    if (!email) {
+      document.getElementById('err-email').textContent = 'Email is required.';
+      valid = false;
+    } else if (!emailRegex.test(email)) {
+      document.getElementById('err-email').textContent = 'Invalid email format.';
+      valid = false;
+    }
 
-        if (!validateRegisterForm()) return;
+    if (!password) {
+      document.getElementById('err-password').textContent = 'Password is required.';
+      valid = false;
+    } else if (password.length < 6) {
+      document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
+      valid = false;
+    }
 
-        const username = document.getElementById('username').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const errorMsg = document.getElementById('error-msg');
-        errorMsg.classList.add('d-none');
+    return valid;
+  }
 
-        const res = await fetch(BASE_URL + '/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
-        });
+  document.getElementById('register-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
 
-        const data = await res.json();
+    if (!validateRegisterForm()) return;
 
-        if (!res.ok) {
-            errorMsg.textContent = data.detail || 'Registration failed. Please try again.';
-            errorMsg.classList.remove('d-none');
-            return;
-        }
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const errorMsg = document.getElementById('error-msg');
+    errorMsg.classList.add('d-none');
 
-        window.location.href = 'login.html';
+    const res = await fetch(BASE_URL + '/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
     });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      errorMsg.textContent = data.detail || 'Registration failed. Please try again.';
+      errorMsg.classList.remove('d-none');
+      return;
+    }
+
+    window.location.href = 'login.html';
+  });
 </script>
 
 </body>

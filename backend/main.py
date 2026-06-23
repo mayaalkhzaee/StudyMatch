@@ -25,8 +25,6 @@ app.include_router(stats_router, prefix="/stats")
 @app.get("/health")
 async def health_check(request: Request):
     try:
-        # NOTE: admin.command('ping') is a MongoDB-specific admin call — beyond course slides
-        await request.app.mongodb_client.admin.command('ping')
         return {
             "status": "ok",
             "message": "API is running and connected to MongoDB"

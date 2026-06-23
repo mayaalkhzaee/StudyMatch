@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone, date as Date
+from datetime import date as Date
 from enum import Enum
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
@@ -227,14 +227,6 @@ async def join_session(
         {"_id": current_user["_id"]},
         {"$set": {"joined_session_ids": joined_sessions}}
     )
-    # NOTE: I keep a separate enrollments collection for audit history — beyond course slides
-    enrollment = {
-        "_id": str(uuid.uuid4()),
-        "user_id": current_user["_id"],
-        "session_id": id,
-        "enrolled_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db["enrollments"].insert_one(enrollment)
     return {
         "message": "Successfully joined session",
         "enrolled_count": new_count
@@ -276,10 +268,6 @@ async def leave_session(
         {"_id": current_user["_id"]},
         {"$set": {"joined_session_ids": joined_sessions}}
     )
-    await db["enrollments"].delete_one({
-        "user_id": current_user["_id"],
-        "session_id": id
-    })
     return {
         "message": "Successfully left session",
         "enrolled_count": new_count
