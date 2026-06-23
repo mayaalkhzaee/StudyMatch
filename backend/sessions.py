@@ -150,9 +150,10 @@ async def update_session(
     if session["host_id"] != str(current_user["_id"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
-        )
+    )
+    encoded_data = jsonable_encoder(session_data)
     changes = {
-        k: v for k, v in session_data.model_dump().items()
+        k: v for k, v in encoded_data.items()
         if v is not None
     }
     if len(changes) > 0:

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,45 +12,46 @@
         .chart-box-sm { position: relative; height: 190px; }
     </style>
 </head>
+
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-        <a class="navbar-brand fw-bold" href="index.html">StudyMatch</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="sessions.html">Browse Sessions</a></li>
-                <li class="nav-item"><a class="nav-link" href="post-session.html">Post Session</a></li>
-                <li class="nav-item"><a class="nav-link" href="dashboard.html">My Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link active" href="stats.html">Stats</a></li>
-            </ul>
-            <div id="nav-guest" class="d-none">
-                <a href="login.html" class="btn btn-outline-light me-2">Login</a>
-                <a href="register.html" class="btn btn-light">Register</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="dashboard.html">StudyMatch</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="sessions.html">Browse Sessions</a></li>
+                    <li class="nav-item"><a class="nav-link" href="post-session.html">Post Session</a></li>
+                    <li class="nav-item"><a class="nav-link" href="dashboard.html">My Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="stats.html">Stats</a></li>
+                </ul>
+                <div id="nav-guest" class="d-none">
+                    <a href="login.html" class="btn btn-outline-light me-2">Login</a>
+                    <a href="register.html" class="btn btn-light">Register</a>
+                </div>
+                <div id="nav-user" class="d-none d-flex align-items-center gap-2">
+                    <span class="text-white">Hi, <strong id="nav-username"></strong></span>
+                    <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+                </div>
+                <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
             </div>
-            <div id="nav-user" class="d-none d-flex align-items-center gap-2">
-                <span class="text-white">Hi, <strong id="nav-username"></strong></span>
-                <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+
+        <h2 class="mb-4">Platform Statistics</h2>
+
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
-            <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
+            <p class="text-muted mt-2">Loading stats...</p>
         </div>
-    </div>
-</nav>
-
-<div class="container mt-4">
-
-    <h2 class="mb-4">Platform Statistics</h2>
-
-    <div id="loading" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-        </div>
-        <p class="text-muted mt-2">Loading stats...</p>
-    </div>
 
     <div id="stats-content" class="d-none">
 
@@ -122,8 +124,8 @@
             </div>
         </div>
 
+        </div>
     </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/navbar.js"></script>
@@ -343,4 +345,5 @@
 </script>
 
 </body>
+
 </html>

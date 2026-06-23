@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,58 +9,71 @@
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
     <style>
         @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
+
         .card {
             animation: fadeInUp 0.4s ease both;
             animation-delay: var(--anim-delay, 0ms);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+
         .card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
         }
-        .btn { transition: all 0.2s ease; }
+
+        .btn {
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
+
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-    <div class="container">
-        <a class="navbar-brand fw-bold" href="index.html">StudyMatch</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="sessions.html">Browse Sessions</a></li>
-                <li class="nav-item"><a class="nav-link" href="post-session.html">Post Session</a></li>
-                <li class="nav-item"><a class="nav-link active" href="dashboard.html">My Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="stats.html">Stats</a></li>
-            </ul>
-            <div id="nav-guest" class="d-none">
-                <a href="login.html" class="btn btn-outline-light me-2">Login</a>
-                <a href="register.html" class="btn btn-light">Register</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="dashboard.html">StudyMatch</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link" href="sessions.html">Browse Sessions</a></li>
+                    <li class="nav-item"><a class="nav-link" href="post-session.html">Post Session</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="dashboard.html">My Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="stats.html">Stats</a></li>
+                </ul>
+                <div id="nav-guest" class="d-none">
+                    <a href="login.html" class="btn btn-outline-light me-2">Login</a>
+                    <a href="register.html" class="btn btn-light">Register</a>
+                </div>
+                <div id="nav-user" class="d-none d-flex align-items-center gap-2">
+                    <span class="text-white">Hi, <strong id="nav-username"></strong></span>
+                    <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+                </div>
+                <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
             </div>
-            <div id="nav-user" class="d-none d-flex align-items-center gap-2">
-                <span class="text-white">Hi, <strong id="nav-username"></strong></span>
-                <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h4 class="mb-1" id="profile-username">Loading...</h4>
+                <p class="text-muted mb-0" id="profile-email"></p>
             </div>
-            <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
         </div>
-    </div>
-</nav>
-
-<div class="container mt-4">
-
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body">
-            <h4 class="mb-1" id="profile-username">Loading...</h4>
-            <p class="text-muted mb-0" id="profile-email"></p>
-        </div>
-    </div>
 
     <ul class="nav nav-tabs mb-4" id="dashboard-tabs">
         <li class="nav-item">
@@ -87,7 +101,7 @@
         <div id="dashboard-calendar"></div>
     </div>
 
-</div>
+    </div>
 
 <div class="modal fade" id="edit-modal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -143,14 +157,16 @@
     </div>
 </div>
 
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
-    <div id="toast-el" class="toast align-items-center border-0 text-white" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body" id="toast-body"></div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+        <div id="toast-el" class="toast align-items-center border-0 text-white" role="alert" aria-live="assertive"
+            aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toast-body"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                    aria-label="Close"></button>
+            </div>
         </div>
     </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/navbar.js"></script>
@@ -619,4 +635,5 @@
 </script>
 
 </body>
+
 </html>
