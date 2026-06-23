@@ -69,9 +69,11 @@
                     <a href="register.html" class="btn btn-light">Register</a>
                 </div>
                 <div id="nav-user" class="d-none d-flex align-items-center gap-2">
-                    <span class="text-white">Hi, <strong id="nav-username"></strong></span>
-                    <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
-                </div>
+					<a href="profile.html" class="text-white text-decoration-none me-2">
+						Hi, <strong id="nav-username"></strong>
+					</a>
+					<button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
+				</div>
                 <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
             </div>
         </div>
@@ -317,8 +319,13 @@
       noSessions.classList.remove('d-none');
       return;
     }
-
     const displayed = getFilteredSessions(search);
+	displayed.sort((a, b) => {
+                const dateTimeA = a.date + 'T' + a.time;
+                const dateTimeB = b.date + 'T' + b.time;
+                // Compare descending
+                return dateTimeA > dateTimeB ? -1 : (dateTimeA < dateTimeB ? 1 : 0);
+            });
 
     if (displayed.length === 0) {
       container.innerHTML = '';

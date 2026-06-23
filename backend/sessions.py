@@ -1,5 +1,5 @@
 import uuid
-from datetime import date as Date
+from datetime import date as Date, timezone, datetime
 from enum import Enum
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
@@ -80,14 +80,19 @@ async def get_recommended_sessions(
     if not joined_courses:
         return []
 
+    # Get today's date formatted to match your DB strings (YYYY-MM-DD)
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
     query = {
         "course": {"$in": joined_courses},
         "_id": {"$nin": joined_ids},
-        "host_id": {"$ne": str(current_user["_id"])}
+        "host_id": {"$ne": str(current_user["_id"])},
+        "date": {"$gte": today_str},  # Exclude past sessions
+        "$expr": {"$lt": ["$enrolled_count", "$capacity"]}  # Exclude full sessions
     }
+    
     recommended_cursor = db["sessions"].find(query)
     return [s async for s in recommended_cursor]
-
 
 @router.get("/{id}", response_model=SessionResponse)
 async def get_session(id: str, request: Request):
