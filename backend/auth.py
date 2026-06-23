@@ -33,7 +33,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm="HS256")
     return encoded_jwt
 
-# --- Pydantic Models ---
 class UserRegisterRequest(BaseModel):
     username: str = Field(...)
     email: EmailStr = Field(...)
@@ -70,7 +69,6 @@ class TokenResponse(BaseModel):
     token_type: str
 
 
-# --- Dependencies ---
 async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_scheme)]):
     try:
         # Decode the token
@@ -97,7 +95,6 @@ async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_sc
     return user
 
 
-# --- Endpoints ---
 @router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRegisterResponse)
 async def register_user(user: UserRegisterRequest, request: Request):
     db = request.app.database

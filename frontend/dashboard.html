@@ -43,6 +43,11 @@
         </div>
     </div>
 
+    <div id="recommended-section">
+        <h4 class="mb-3">Recommended For You</h4>
+        <div id="recommended-container" class="row g-3 mb-5"></div>
+    </div>
+
     <h4 class="mb-3">Sessions I'm Hosting</h4>
     <div id="hosted-container" class="row g-3 mb-5"></div>
 
@@ -164,6 +169,7 @@
 
         renderHostedSessions();
         renderJoinedSessions();
+        await loadRecommendations();
     }
 
     function typeBadge(type) {
@@ -252,6 +258,70 @@
                 </div>
             </div>
         `;
+    }
+
+    async function loadRecommendations() {
+        const res = await fetch(BASE_URL + '/sessions/recommended', { headers: authHeaders() });
+        if (!res.ok) return;
+        const recommendations = await res.json();
+
+        const container = document.getElementById('recommended-container');
+        if (recommendations.length === 0) {
+            container.innerHTML = '<p class="text-muted">Join a session first to get recommendations!</p>';
+            return;
+        }
+        container.innerHTML = recommendations.slice(0, 3).map(renderRecommendedCard).join('');
+    }
+
+    function renderRecommendedCard(session) {
+        const sid = session._id || session.id;
+        const isFull = session.capacity - session.enrolled_count <= 0;
+        return `
+            <div class="col-md-6 col-lg-4" id="rec-card-${sid}">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">${session.course}</h5>
+                            ${typeBadge(session.type)}
+                        </div>
+                        <p class="text-muted small mb-1">Hosted by <strong>${session.host}</strong></p>
+                        <p class="card-text mb-1">${session.date} &nbsp;|&nbsp; ${session.time}</p>
+                        <p class="card-text text-muted small text-truncate mb-2">${session.location}</p>
+                        <div class="mb-3">
+                            ${progressBar(session.enrolled_count, session.capacity)}
+                        </div>
+                        <div class="mt-auto d-flex justify-content-end">
+                            ${isFull
+                                ? '<button class="btn btn-secondary btn-sm" disabled>Full</button>'
+                                : `<button class="btn btn-primary btn-sm" id="rec-btn-${sid}" onclick="handleRecommendedJoin('${sid}')">Join</button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function handleRecommendedJoin(sid) {
+        const btn = document.getElementById('rec-btn-' + sid);
+        btn.disabled = true;
+        btn.textContent = 'Joining...';
+
+        const res = await fetch(BASE_URL + '/sessions/' + sid + '/join', {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            btn.disabled = false;
+            btn.textContent = 'Join';
+            showToast(data.detail || 'Could not join session.', false);
+            return;
+        }
+
+        document.getElementById('rec-card-' + sid).remove();
+        showToast('Successfully joined the session!', true);
     }
 
     async function handleDelete(sid) {
@@ -353,7 +423,6 @@
         document.getElementById('edit-date').value = session.date;
         document.getElementById('edit-time').value = session.time;
         document.getElementById('edit-capacity').value = session.capacity;
-        document.getElementById('edit-error').classList.add('d-none');
         ['course', 'type', 'location', 'date', 'time', 'capacity'].forEach(f => {
             document.getElementById('err-edit-' + f).textContent = '';
         });

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date as Date
 from enum import Enum
 from fastapi import APIRouter, Request, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
@@ -19,7 +19,7 @@ class SessionCreate(BaseModel):
     course: str = Field(...)
     type: SessionType = Field(...)
     location: str = Field(...)
-    date: date = Field(...)
+    date: Date = Field(...)
     time: str = Field(...)
     capacity: int = Field(..., gt=0)
 
@@ -27,7 +27,7 @@ class SessionUpdate(BaseModel):
     course: str | None = Field(default=None)
     type: SessionType | None = Field(default=None)
     location: str | None = Field(default=None)
-    date: date | None = Field(default=None)
+    date: Date | None = Field(default=None)
     time: str | None = Field(default=None)
     capacity: int | None = Field(default=None, gt=0)
 
@@ -38,7 +38,7 @@ class SessionResponse(BaseModel):
     host_id: str
     type: SessionType
     location: str
-    date: date
+    date: Date
     time: str
     capacity: int
     enrolled_count: int = 0
@@ -98,7 +98,7 @@ async def create_session(
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     # Pydantic already converted session_data.date to a python date object (cleaner than the previous method)
-    if session_data.date < date.today():
+    if session_data.date < Date.today():
         raise HTTPException(status_code=400, detail="Session date cannot be in the past.")
 
     db = request.app.database
@@ -119,14 +119,6 @@ async def create_session(
     await db["sessions"].insert_one(jsession)
     
     return jsession
-
-class SessionUpdate(BaseModel):
-    course: str | None = None
-    type: str | None = None
-    location: str | None = None
-    date: str | None = None
-    time: str | None = None
-    capacity: int | None = None
 
 @router.put("/{id}", response_model=SessionResponse)
 async def update_session(
