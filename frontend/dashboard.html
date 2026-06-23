@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Dashboard — StudyMatch</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
     <style>
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
@@ -60,16 +61,31 @@
         </div>
     </div>
 
-    <div id="recommended-section">
-        <h4 class="mb-3">Recommended For You</h4>
-        <div id="recommended-container" class="row g-3 mb-5"></div>
+    <ul class="nav nav-tabs mb-4" id="dashboard-tabs">
+        <li class="nav-item">
+            <button class="nav-link active" id="tab-list">List View</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="tab-calendar">Calendar View</button>
+        </li>
+    </ul>
+
+    <div id="list-view">
+        <div id="recommended-section">
+            <h4 class="mb-3">Recommended For You</h4>
+            <div id="recommended-container" class="row g-3 mb-5"></div>
+        </div>
+
+        <h4 class="mb-3">Sessions I'm Hosting</h4>
+        <div id="hosted-container" class="row g-3 mb-5"></div>
+
+        <h4 class="mb-3">Sessions I've Joined</h4>
+        <div id="joined-container" class="row g-3 mb-5"></div>
     </div>
 
-    <h4 class="mb-3">Sessions I'm Hosting</h4>
-    <div id="hosted-container" class="row g-3 mb-5"></div>
-
-    <h4 class="mb-3">Sessions I've Joined</h4>
-    <div id="joined-container" class="row g-3 mb-5"></div>
+    <div id="calendar-view" class="d-none">
+        <div id="dashboard-calendar"></div>
+    </div>
 
 </div>
 
@@ -140,10 +156,13 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/navbar.js"></script>
 <script src="js/auth.js"></script>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 <script>
     let currentEditId = null;
     let mySessions = [];
     let joinedSessions = [];
+    let dashCalendar = null;
+    let activePopover = null;
     const TODAY = new Date().toISOString().split('T')[0];
 
     function showToast(message, isSuccess) {
@@ -163,6 +182,69 @@
             </div>
             <p class="text-muted small mb-0 mt-1">${enrolled} / ${capacity} spots filled</p>
         `;
+    }
+
+    function closeActivePopover() {
+        if (activePopover) {
+            activePopover.dispose();
+            activePopover = null;
+        }
+    }
+
+    function initDashboardCalendar() {
+        const calEl = document.getElementById('dashboard-calendar');
+
+        if (dashCalendar) {
+            dashCalendar.destroy();
+            dashCalendar = null;
+        }
+
+        const hostedEvents = mySessions.map(s => ({
+            id: s._id,
+            title: s.course,
+            start: s.date + 'T' + s.time,
+            color: '#0d6efd',
+            extendedProps: { course: s.course, date: s.date, time: s.time, location: s.location, isJoined: false, sid: s._id }
+        }));
+
+        const joinedEvents = joinedSessions.map(s => ({
+            id: 'j-' + (s._id || s.id),
+            title: s.course,
+            start: s.date + 'T' + s.time,
+            color: '#198754',
+            extendedProps: { course: s.course, date: s.date, time: s.time, location: s.location, isJoined: true, sid: s._id || s.id }
+        }));
+
+        dashCalendar = new FullCalendar.Calendar(calEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listWeek'
+            },
+            height: 'auto',
+            slotMinTime: '07:00:00',
+            scrollTime: '07:00:00',
+            events: hostedEvents.concat(joinedEvents),
+            eventClick: function (info) {
+                closeActivePopover();
+                const p = info.event.extendedProps;
+                const leaveBtn = p.isJoined
+                    ? `<div class="mt-2"><button class="btn btn-sm btn-outline-danger" onclick="handleDashLeave('${p.sid}')">Leave</button></div>`
+                    : '';
+                activePopover = new bootstrap.Popover(info.el, {
+                    title: p.course,
+                    content: `${p.date} | ${p.time}<br>${p.location}${leaveBtn}`,
+                    html: true,
+                    placement: 'top',
+                    trigger: 'manual'
+                });
+                activePopover.show();
+                info.jsEvent.stopPropagation();
+            }
+        });
+
+        dashCalendar.render();
     }
 
     async function init() {
@@ -187,6 +269,26 @@
         renderHostedSessions();
         renderJoinedSessions();
         await loadRecommendations();
+
+        document.getElementById('tab-list').addEventListener('click', function () {
+            this.classList.add('active');
+            document.getElementById('tab-calendar').classList.remove('active');
+            document.getElementById('list-view').classList.remove('d-none');
+            document.getElementById('calendar-view').classList.add('d-none');
+            closeActivePopover();
+        });
+
+        document.getElementById('tab-calendar').addEventListener('click', function () {
+            this.classList.add('active');
+            document.getElementById('tab-list').classList.remove('active');
+            document.getElementById('list-view').classList.add('d-none');
+            document.getElementById('calendar-view').classList.remove('d-none');
+            initDashboardCalendar();
+        });
+
+        document.addEventListener('click', function () {
+            closeActivePopover();
+        });
     }
 
     function typeBadge(type) {
@@ -358,6 +460,26 @@
         document.getElementById('host-card-' + sid).remove();
         mySessions = mySessions.filter(s => s._id !== sid);
         showToast('Session deleted.', true);
+    }
+
+    async function handleDashLeave(sid) {
+        closeActivePopover();
+        const res = await fetch(BASE_URL + '/sessions/' + sid + '/leave', {
+            method: 'POST',
+            headers: authHeaders()
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            showToast(data.detail || 'Could not leave session.', false);
+            return;
+        }
+
+        joinedSessions = joinedSessions.filter(s => (s._id || s.id) !== sid);
+        const card = document.getElementById('joined-card-' + sid);
+        if (card) card.remove();
+        initDashboardCalendar();
+        showToast('Left the session.', true);
     }
 
     async function handleLeave(sid) {

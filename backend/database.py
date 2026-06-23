@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 config = dotenv_values("../.env")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.mongodb_client = AsyncMongoClient(config["DB_URI"])

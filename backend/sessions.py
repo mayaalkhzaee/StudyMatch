@@ -10,10 +10,11 @@ from auth import get_current_user
 
 router = APIRouter()
 
-# --- Pydantic Models ---
+
 class SessionType(str, Enum):
     online = "online"
     in_person = "in-person"
+
 
 class SessionCreate(BaseModel):
     course: str = Field(...)
@@ -23,6 +24,7 @@ class SessionCreate(BaseModel):
     time: str = Field(...)
     capacity: int = Field(..., gt=0)
 
+
 class SessionUpdate(BaseModel):
     course: str | None = Field(default=None)
     type: SessionType | None = Field(default=None)
@@ -31,8 +33,11 @@ class SessionUpdate(BaseModel):
     time: str | None = Field(default=None)
     capacity: int | None = Field(default=None, gt=0)
 
+
 class SessionResponse(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()), alias="_id"
+    )
     course: str
     host: str
     host_id: str
@@ -49,7 +54,6 @@ class SessionResponse(BaseModel):
         arbitrary_types_allowed=True
     )
 
-# --- Endpoints ---
 
 @router.get("", response_model=list[SessionResponse])
 async def get_all_sessions(request: Request):
@@ -58,51 +62,62 @@ async def get_all_sessions(request: Request):
     sessions = [i async for i in records]
     return sessions
 
+
 @router.get("/recommended", response_model=list[SessionResponse])
 async def get_recommended_sessions(
-    request: Request, 
+    request: Request,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     db = request.app.database
     joined_ids = current_user.get("joined_session_ids", [])
-    
-    # 1. Fetch courses from sessions the user has already joined
+
+    # Get the courses from sessions the user already joined
     joined_cursor = db["sessions"].find({"_id": {"$in": joined_ids}})
-    joined_courses = list(set([s["course"] async for s in joined_cursor if "course" in s]))
-    
+    joined_courses = list(set(
+        [s["course"] async for s in joined_cursor if "course" in s]
+    ))
+
     if not joined_courses:
         return []
-        
-    # 2. Find sessions matching courses, excluding joined and hosted
+
     query = {
         "course": {"$in": joined_courses},
         "_id": {"$nin": joined_ids},
         "host_id": {"$ne": str(current_user["_id"])}
     }
-    
     recommended_cursor = db["sessions"].find(query)
     return [s async for s in recommended_cursor]
+
 
 @router.get("/{id}", response_model=SessionResponse)
 async def get_session(id: str, request: Request):
     db = request.app.database
     session = await db["sessions"].find_one({"_id": id})
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
     return session
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=SessionResponse)
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SessionResponse
+)
 async def create_session(
-    request: Request, 
-    session_data: SessionCreate, 
+    request: Request,
+    session_data: SessionCreate,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    # Pydantic already converted session_data.date to a python date object (cleaner than the previous method)
+    # date is already a python date object after Pydantic validates the input
     if session_data.date < Date.today():
-        raise HTTPException(status_code=400, detail="Session date cannot be in the past.")
-
+        raise HTTPException(
+            status_code=400,
+            detail="Session date cannot be in the past."
+        )
     db = request.app.database
-
     new_session = SessionResponse(
         course=session_data.course,
         type=session_data.type,
@@ -113,93 +128,106 @@ async def create_session(
         host=current_user["username"],
         host_id=str(current_user["_id"])
     )
-    
-    # Encode for MongoDB 
     jsession = jsonable_encoder(new_session)
     await db["sessions"].insert_one(jsession)
-    
     return jsession
+
 
 @router.put("/{id}", response_model=SessionResponse)
 async def update_session(
-    id: str, 
-    request: Request, 
+    id: str,
+    request: Request,
     session_data: SessionUpdate,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     db = request.app.database
     session = await db["sessions"].find_one({"_id": id})
-    
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
     if session["host_id"] != str(current_user["_id"]):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        
-    changes = {k: v for k, v in session_data.model_dump().items() if v is not None}
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        )
+    changes = {
+        k: v for k, v in session_data.model_dump().items()
+        if v is not None
+    }
     if len(changes) > 0:
         await db["sessions"].update_one({"_id": id}, {"$set": changes})
-        
     updated_session = await db["sessions"].find_one({"_id": id})
     return updated_session
 
+
 @router.delete("/{id}")
 async def delete_session(
-    id: str, 
-    request: Request, 
+    id: str,
+    request: Request,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     db = request.app.database
     session = await db["sessions"].find_one({"_id": id})
-    
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
     if session["host_id"] != str(current_user["_id"]):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+        )
     delete_result = await db["sessions"].delete_one({"_id": id})
     if delete_result.deleted_count == 1:
         return {"message": "Session deleted successfully"}
-        
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Session not found"
+    )
+
 
 @router.post("/{id}/join")
 async def join_session(
-    id: str, 
-    request: Request, 
+    id: str,
+    request: Request,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     db = request.app.database
     session = await db["sessions"].find_one({"_id": id})
-    
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
     enrolled_users = session.get("enrolled_users", [])
     if current_user["_id"] in enrolled_users:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You have already joined this session")
-        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You have already joined this session"
+        )
     enrolled_count = session.get("enrolled_count", 0)
     if enrolled_count >= session.get("capacity", 0):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Session is full")
-    
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is full"
+        )
     enrolled_users.append(str(current_user["_id"]))
     new_count = enrolled_count + 1
-    
     await db["sessions"].update_one(
-        {"_id": id}, 
-        {"$set": {"enrolled_users": enrolled_users, "enrolled_count": new_count}}
+        {"_id": id},
+        {"$set": {
+            "enrolled_users": enrolled_users,
+            "enrolled_count": new_count
+        }}
     )
-    
     joined_sessions = current_user.get("joined_session_ids", [])
     joined_sessions.append(id)
-    
     await db["users"].update_one(
         {"_id": current_user["_id"]},
         {"$set": {"joined_session_ids": joined_sessions}}
     )
-    
+    # NOTE: I keep a separate enrollments collection for audit history — beyond course slides
     enrollment = {
         "_id": str(uuid.uuid4()),
         "user_id": current_user["_id"],
@@ -207,7 +235,6 @@ async def join_session(
         "enrolled_at": datetime.now(timezone.utc).isoformat()
     }
     await db["enrollments"].insert_one(enrollment)
-    
     return {
         "message": "Successfully joined session",
         "enrolled_count": new_count
@@ -216,42 +243,43 @@ async def join_session(
 
 @router.post("/{id}/leave")
 async def leave_session(
-    id: str, 
-    request: Request, 
+    id: str,
+    request: Request,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
     db = request.app.database
     session = await db["sessions"].find_one({"_id": id})
-    
     if session is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
     enrolled_users = session.get("enrolled_users", [])
     if str(current_user["_id"]) not in enrolled_users:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You are not enrolled in this session")
-        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are not enrolled in this session"
+        )
     enrolled_users.remove(str(current_user["_id"]))
     new_count = session.get("enrolled_count", 1) - 1
-    
     await db["sessions"].update_one(
-        {"_id": id}, 
-        {"$set": {"enrolled_users": enrolled_users, "enrolled_count": new_count}}
+        {"_id": id},
+        {"$set": {
+            "enrolled_users": enrolled_users,
+            "enrolled_count": new_count
+        }}
     )
-    
     joined_sessions = current_user.get("joined_session_ids", [])
     if id in joined_sessions:
         joined_sessions.remove(id)
-        
     await db["users"].update_one(
         {"_id": current_user["_id"]},
         {"$set": {"joined_session_ids": joined_sessions}}
     )
-    
     await db["enrollments"].delete_one({
         "user_id": current_user["_id"],
         "session_id": id
     })
-    
     return {
         "message": "Successfully left session",
         "enrolled_count": new_count

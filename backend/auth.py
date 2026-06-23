@@ -9,6 +9,7 @@ from pwdlib import PasswordHash
 from typing import Annotated
 from dotenv import dotenv_values
 
+
 config = dotenv_values("../.env")
 JWT_SECRET = config["JWT_SECRET"]
 
@@ -17,11 +18,14 @@ router = APIRouter()
 password_hash = PasswordHash.recommended()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+
 def get_password_hash(password: str):
     return password_hash.hash(password)
 
+
 def verify_password_hash(plaintext: str, hashedpass: str):
     return password_hash.verify(plaintext, hashedpass)
+
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
@@ -33,18 +37,23 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm="HS256")
     return encoded_jwt
 
+
 class UserRegisterRequest(BaseModel):
     username: str = Field(...)
     email: EmailStr = Field(...)
     password: str = Field(...)
+
 
 class UserRegisterResponse(BaseModel):
     id: str
     username: str
     email: str
 
+
 class UserBase(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()), alias="_id"
+    )
     username: str
     email: EmailStr
     joined_session_ids: list[str] = []
@@ -54,29 +63,35 @@ class UserBase(BaseModel):
         arbitrary_types_allowed=True
     )
 
+
 class NewUser(UserBase):
     password: str
+
 
 class DBUser(UserBase):
     hashed_password: str
 
+
 class LoginRequest(BaseModel):
-    email: str= Field(...)
-    password: str= Field(...)
+    email: str = Field(...)
+    password: str = Field(...)
+
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
 
 
-async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_scheme)]):
+async def get_current_user(
+    req: Request,
+    token: Annotated[str, Depends(oauth2_scheme)]
+):
     try:
-        # Decode the token
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         email: str = payload.get("user")
         if email is None:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token payload"
             )
     except jwt.PyJWTError:
@@ -84,25 +99,30 @@ async def get_current_user(req: Request, token: Annotated[str, Depends(oauth2_sc
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token is missing or invalid"
         )
-    
-    # Fetch the user from MongoDB
     user = await req.app.database["users"].find_one({"email": email})
     if user is None:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
         )
     return user
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=UserRegisterResponse)
+@router.post(
+    "/register",
+    status_code=status.HTTP_201_CREATED,
+    response_model=UserRegisterResponse
+)
 async def register_user(user: UserRegisterRequest, request: Request):
     db = request.app.database
     if await db.users.find_one({"email": user.email}):
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=400, detail="Email already registered"
+        )
     if await db.users.find_one({"username": user.username}):
-        raise HTTPException(status_code=400, detail="Username already taken")
-    
+        raise HTTPException(
+            status_code=400, detail="Username already taken"
+        )
     hashed_password = get_password_hash(user.password)
     new_user = DBUser(
         username=user.username,
@@ -111,24 +131,26 @@ async def register_user(user: UserRegisterRequest, request: Request):
     )
     juser = jsonable_encoder(new_user)
     await db.users.insert_one(juser)
-    return UserRegisterResponse(id=juser["_id"], username=user.username, email=user.email)
+    return UserRegisterResponse(
+        id=juser["_id"], username=user.username, email=user.email
+    )
+
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: Request, data: LoginRequest):
     db = req.app.database
     collection = db["users"]
-    
     user = await collection.find_one({"email": data.email})
+    # Try username lookup so users can log in with either email or username
     if user is None:
         user = await collection.find_one({"username": data.email})
-
-    if not user or not verify_password_hash(data.password, user["hashed_password"]):
+    if not user or not verify_password_hash(
+        data.password, user["hashed_password"]
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
-    # Issue JWT Token 
     token = create_access_token({"user": user["email"]})
     return TokenResponse(access_token=token, token_type="bearer")
