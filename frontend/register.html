@@ -29,7 +29,9 @@
                     <a href="register.html" class="btn btn-light">Register</a>
                 </div>
                 <div id="nav-user" class="d-none d-flex align-items-center gap-2">
-                    <span class="text-white">Hi, <strong id="nav-username"></strong></span>
+                    <a href="profile.html" class="text-white text-decoration-none me-2">
+                        Hi, <strong id="nav-username"></strong>
+                    </a>
                     <button id="nav-logout" class="btn btn-outline-light btn-sm">Logout</button>
                 </div>
                 <button id="theme-toggle" class="btn btn-outline-light btn-sm ms-2">☾</button>
@@ -75,80 +77,80 @@
         </div>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="js/navbar.js"></script>
-<script src="js/auth.js"></script>
-<script>
-  function validateRegisterForm() {
-    const username = document.getElementById('username').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/navbar.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        function validateRegisterForm() {
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    document.getElementById('err-username').textContent = '';
-    document.getElementById('err-email').textContent = '';
-    document.getElementById('err-password').textContent = '';
+            document.getElementById('err-username').textContent = '';
+            document.getElementById('err-email').textContent = '';
+            document.getElementById('err-password').textContent = '';
 
-    let valid = true;
+            let valid = true;
 
-    if (!username) {
-      document.getElementById('err-username').textContent = 'Username is required.';
-      valid = false;
-    } else if (username.length < 3) {
-      document.getElementById('err-username').textContent = 'Username must be at least 3 characters.';
-      valid = false;
-    } else if (username.length > 20) {
-      document.getElementById('err-username').textContent = 'Username must be 20 characters or fewer.';
-      valid = false;
-    }
+            if (!username) {
+                document.getElementById('err-username').textContent = 'Username is required.';
+                valid = false;
+            } else if (username.length < 3) {
+                document.getElementById('err-username').textContent = 'Username must be at least 3 characters.';
+                valid = false;
+            } else if (username.length > 20) {
+                document.getElementById('err-username').textContent = 'Username must be 20 characters or fewer.';
+                valid = false;
+            }
 
-    if (!email) {
-      document.getElementById('err-email').textContent = 'Email is required.';
-      valid = false;
-    } else if (!emailRegex.test(email)) {
-      document.getElementById('err-email').textContent = 'Invalid email format.';
-      valid = false;
-    }
+            if (!email) {
+                document.getElementById('err-email').textContent = 'Email is required.';
+                valid = false;
+            } else if (!emailRegex.test(email)) {
+                document.getElementById('err-email').textContent = 'Invalid email format.';
+                valid = false;
+            }
 
-    if (!password) {
-      document.getElementById('err-password').textContent = 'Password is required.';
-      valid = false;
-    } else if (password.length < 6) {
-      document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
-      valid = false;
-    }
+            if (!password) {
+                document.getElementById('err-password').textContent = 'Password is required.';
+                valid = false;
+            } else if (password.length < 6) {
+                document.getElementById('err-password').textContent = 'Password must be at least 6 characters.';
+                valid = false;
+            }
 
-    return valid;
-  }
+            return valid;
+        }
 
-  document.getElementById('register-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
+        document.getElementById('register-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
 
-    if (!validateRegisterForm()) return;
+            if (!validateRegisterForm()) return;
 
-    const username = document.getElementById('username').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const errorMsg = document.getElementById('error-msg');
-    errorMsg.classList.add('d-none');
+            const username = document.getElementById('username').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-msg');
+            errorMsg.classList.add('d-none');
 
-    const res = await fetch(BASE_URL + '/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    });
+            const res = await fetch(BASE_URL + '/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password })
+            });
 
-    const data = await res.json();
+            const data = await res.json();
 
-    if (!res.ok) {
-      errorMsg.textContent = data.detail || 'Registration failed. Please try again.';
-      errorMsg.classList.remove('d-none');
-      return;
-    }
+            if (!res.ok) {
+                errorMsg.textContent = data.detail || 'Registration failed. Please try again.';
+                errorMsg.classList.remove('d-none');
+                return;
+            }
 
-    window.location.href = 'login.html';
-  });
-</script>
+            window.location.href = 'login.html';
+        });
+    </script>
 
 </body>
 
