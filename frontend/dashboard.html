@@ -224,6 +224,7 @@
                 extendedProps: { course: s.course, date: s.date, time: s.time, location: s.location, isJoined: false, sid: s._id }
             }));
 
+            // j- stops joined events clashing with hosted events if they have the same id
             const joinedEvents = joinedSessions.map(s => ({
                 id: 'j-' + (s._id || s.id),
                 title: s.course,
@@ -270,7 +271,7 @@
                 return;
             }
 
-            // fetch profile, hosted sessions, and joined sessions all at once
+            // fetch profile, hosted sessions, and joined sessions from backend at the same time
             const [profileRes, mySessionsRes, joinedRes] = await Promise.all([
                 fetch(BASE_URL + '/users/me', { headers: authHeaders() }),
                 fetch(BASE_URL + '/users/me/sessions', { headers: authHeaders() }),

@@ -16,6 +16,7 @@ function authHeaders() {
 }
 
 function isLoggedIn() {
+  // !! turns it into a boolean, so no token = false, has token = true
   return !!getToken();
 }
 

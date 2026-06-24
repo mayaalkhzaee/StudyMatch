@@ -79,7 +79,7 @@ async def update_me(
 
     await db["users"].update_one({"_id": current_user["_id"]}, {"$set": changes})
     
-    # Cascade the username update to any sessions the user hosts
+    # update the host name on their sessions otherwise it shows the old username
     if "username" in changes and changes["username"] != current_user["username"]:
         await db["sessions"].update_many(
             {"host_id": str(current_user["_id"])},
@@ -102,7 +102,7 @@ async def delete_me(
     db = request.app.database
     user_id = current_user["_id"]
 
-    # 1. Remove user from enrolled sessions and decrement the capacity count
+    # remove from any sessions they joined and fix the enrolled count
     await db["sessions"].update_many(
         {"enrolled_users": str(user_id)},
         {
@@ -111,10 +111,8 @@ async def delete_me(
         }
     )
 
-    # 2. Delete any sessions hosted by the user
     await db["sessions"].delete_many({"host_id": str(user_id)})
 
-    # 3. Delete the user account
     await db["users"].delete_one({"_id": user_id})
 
     return {"message": "Account deleted successfully"}

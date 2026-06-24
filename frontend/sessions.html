@@ -152,6 +152,7 @@
   let activeFilters = new Set();
   let calendarInstance = null;
   let currentView = 'card';
+  // Split on T to get just the date
   const TODAY = new Date().toISOString().split('T')[0];
 
   function showToast(message, isSuccess) {
@@ -161,7 +162,6 @@
     bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 3000 }).show();
   }
 
-  // color bar: green > 50% seats left, yellow >= 25%, red below
   function progressBar(enrolled, capacity) {
     const pct = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
     const ratio = capacity > 0 ? (capacity - enrolled) / capacity : 0;
@@ -225,7 +225,6 @@
     return `<button class="btn btn-primary" onclick="handleJoin('${sid}')">Join</button>`;
   }
 
-  // only update if the modal is currently open and showing this specific session
   function updateModalIfOpen(sid) {
     const modalEl = document.getElementById('session-modal');
     if (!modalEl.classList.contains('show') || modalEl.dataset.sid !== sid) return;
@@ -323,7 +322,6 @@
 	displayed.sort((a, b) => {
                 const dateTimeA = a.date + 'T' + a.time;
                 const dateTimeB = b.date + 'T' + b.time;
-                // Compare descending
                 return dateTimeA > dateTimeB ? -1 : (dateTimeA < dateTimeB ? 1 : 0);
             });
 

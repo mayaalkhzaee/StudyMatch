@@ -1,4 +1,3 @@
-// apply saved theme before DOM loads to avoid a flash of the wrong theme
 (function () {
   const theme = localStorage.getItem('theme') || 'light';
   document.documentElement.setAttribute('data-bs-theme', theme);

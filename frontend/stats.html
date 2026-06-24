@@ -154,7 +154,7 @@
     let sessions = [];
 
     try {
-      // fetch both endpoints at the same time
+      // Promise.all waits for both fetches from backend to complete
       const [statsRes, sessionsRes] = await Promise.all([
         fetch(BASE_URL + '/stats'),
         fetch(BASE_URL + '/sessions')

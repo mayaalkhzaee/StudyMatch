@@ -71,7 +71,6 @@ async def get_recommended_sessions(
     db = request.app.database
     joined_ids = current_user.get("joined_session_ids", [])
 
-    # Get the courses from sessions the user already joined
     joined_cursor = db["sessions"].find({"_id": {"$in": joined_ids}})
     joined_courses = list(set(
         [s["course"] async for s in joined_cursor if "course" in s]
@@ -80,15 +79,15 @@ async def get_recommended_sessions(
     if not joined_courses:
         return []
 
-    # Get today's date formatted to match your DB strings (YYYY-MM-DD)
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
+    # only recommend sessions in the same courses that the are not yet joined and are upcoming and not full
     query = {
         "course": {"$in": joined_courses},
         "_id": {"$nin": joined_ids},
         "host_id": {"$ne": str(current_user["_id"])},
-        "date": {"$gte": today_str},  # Exclude past sessions
-        "$expr": {"$lt": ["$enrolled_count", "$capacity"]}  # Exclude full sessions
+        "date": {"$gte": today_str},
+        "$expr": {"$lt": ["$enrolled_count", "$capacity"]}
     }
     
     recommended_cursor = db["sessions"].find(query)
@@ -226,6 +225,7 @@ async def join_session(
             "enrolled_count": new_count
         }}
     )
+    # update the user's joined list too so /me/joined stays in sync
     joined_sessions = current_user.get("joined_session_ids", [])
     joined_sessions.append(id)
     await db["users"].update_one(
