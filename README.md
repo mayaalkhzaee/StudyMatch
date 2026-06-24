@@ -1,6 +1,6 @@
 # StudyMatch
 
-A study group finder web app built for EECE480 — Internet Computing. Students can post and discover in-person or online study sessions, join or leave them, and track their activity through a personal dashboard.
+A study group finder built for EECE480 — Internet Computing. Students can post and browse in-person or online study sessions, join or leave them, get recommendations, and track their activity through a personal dashboard.
 
 ---
 
@@ -9,12 +9,12 @@ A study group finder web app built for EECE480 — Internet Computing. Students 
 | Layer | Technology |
 |-------|-----------|
 | Backend | FastAPI (Python) |
-| Database | MongoDB (local) via `pymongo` AsyncMongoClient |
+| Database | MongoDB (local) via Motor async driver |
 | Auth | JWT (`PyJWT`), password hashing via `pwdlib` |
-| Frontend | Vanilla JavaScript, Bootstrap 5, Chart.js |
-| Config | `python-dotenv` (`dotenv_values`) |
+| Frontend | Vanilla JS, Bootstrap 5.3, Chart.js, FullCalendar 6 |
+| Config | `python-dotenv` |
 
-No frontend framework. HTML files are opened directly in the browser.
+No frontend framework — HTML files are served directly from the browser.
 
 ---
 
@@ -23,27 +23,28 @@ No frontend framework. HTML files are opened directly in the browser.
 ```
 StudyMatch/
 ├── backend/
-│   ├── routers/              # One APIRouter per resource (sessions, users, stats)
-│   ├── models/               # Pydantic models for each resource
-│   ├── main.py               # FastAPI app entry point, router registration
-│   ├── database.py           # AsyncMongoClient + lifespan context manager
-│   └── auth.py               # JWT helpers, password hashing, /auth router
+│   ├── main.py          # FastAPI app, router registration, CORS
+│   ├── database.py      # Motor AsyncMongoClient + lifespan
+│   ├── auth.py          # JWT helpers, password hashing, /auth router
+│   ├── sessions.py      # /sessions router
+│   ├── users.py         # /users router
+│   └── stats.py         # /stats router
 ├── frontend/
 │   ├── js/
-│   │   ├── navbar.js         # Navbar auth state toggle (guest vs logged-in)
-│   │   └── auth.js           # Login / register fetch calls, localStorage helpers
-│   ├── css/                  # Custom styles (if any)
+│   │   ├── auth.js      # localStorage helpers (getToken, authHeaders, logout, etc.)
+│   │   └── navbar.js    # Toggles guest vs logged-in navbar state + theme toggle
 │   ├── index.html            # Landing page
-│   ├── dashboard.html        # User's hosted + joined sessions
-│   ├── sessions.html         # Browse all study sessions
-│   ├── post-session.html     # Create a new session form
-│   ├── register.html         # Registration form
 │   ├── login.html            # Login form
-│   ├── stats.html            # Stats dashboard (Chart.js charts)
-│   └── navbar_template.html  # Copy-paste navbar component (see below)
-├── .env                      # Environment variables (not committed)
-├── requirements.txt          # Python dependencies
-├── API_contract.md           # Shared frontend/backend API reference
+│   ├── register.html         # Registration form
+│   ├── sessions.html         # Browse all sessions (card + calendar view)
+│   ├── post-session.html     # Create a new session
+│   ├── dashboard.html        # Your hosted + joined sessions + recommendations
+│   ├── profile.html          # Edit username/email, delete account
+│   ├── stats.html            # App-wide stats (Chart.js charts)
+│   └── navbar_template.html  # Reference navbar snippet for copy-pasting
+├── .env                 # Not committed — see setup below
+├── requirements.txt
+├── API_contract.md
 └── README.md
 ```
 
@@ -85,7 +86,7 @@ pip install -r ../requirements.txt
 
 ### 4. Start MongoDB
 
-Make sure MongoDB is running locally on port 27017. If you have it installed as a service it may already be running. Otherwise:
+Make sure MongoDB is running on port 27017. If it's installed as a service it might already be running. Otherwise:
 
 ```bash
 mongod
@@ -93,14 +94,13 @@ mongod
 
 ### 5. Run the backend
 
-From inside the `backend/` folder:
+From inside `backend/`:
 
 ```bash
 uvicorn main:app --reload
 ```
 
-The API is now live at `http://localhost:8000`.  
-Interactive docs: `http://localhost:8000/docs`
+API is live at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
 ### 6. Open the frontend
 
@@ -115,15 +115,18 @@ Full details are in [API_contract.md](API_contract.md). Quick reference:
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/auth/register` | No | Create account |
-| POST | `/auth/login` | No | Login, get JWT token |
-| GET | `/sessions` | No | List all sessions |
-| GET | `/sessions/{id}` | No | Get one session |
-| POST | `/sessions` | Yes | Create a session |
+| POST | `/auth/login` | No | Login, get JWT |
+| GET | `/sessions` | No | All sessions |
+| GET | `/sessions/recommended` | Yes | Recommended for you |
+| GET | `/sessions/{id}` | No | Single session |
+| POST | `/sessions` | Yes | Post a session |
 | PUT | `/sessions/{id}` | Yes | Edit your session |
 | DELETE | `/sessions/{id}` | Yes | Delete your session |
 | POST | `/sessions/{id}/join` | Yes | Join a session |
 | POST | `/sessions/{id}/leave` | Yes | Leave a session |
 | GET | `/users/me` | Yes | Your profile |
+| PUT | `/users/me` | Yes | Update username/email |
+| DELETE | `/users/me` | Yes | Delete account |
 | GET | `/users/me/sessions` | Yes | Sessions you host |
 | GET | `/users/me/joined` | Yes | Sessions you joined |
 | GET | `/stats` | No | App-wide stats |
@@ -134,41 +137,17 @@ Protected routes require `Authorization: Bearer <token>` in the request header.
 
 ## Auth Flow
 
-1. User registers at `/auth/register` → account stored in MongoDB with bcrypt-hashed password.
-2. User logs in at `/auth/login` → receives a JWT token.
+1. Register at `/auth/register` → password is argon2-hashed and stored in MongoDB.
+2. Login at `/auth/login` → get a JWT token back. You can log in with either email or username.
 3. Frontend stores `token` and `username` in `localStorage`.
-4. Every protected `fetch()` call attaches the token:
+4. Every protected fetch attaches the token:
    ```js
-   fetch('http://localhost:8000/sessions', {
-       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+   fetch(BASE_URL + '/sessions', {
+     headers: { 'Authorization': 'Bearer ' + getToken() }
    })
    ```
-5. Backend decodes the token with `PyJWT`, looks up the user in MongoDB, and returns a 401 if invalid.
+5. Backend decodes the JWT with `PyJWT`, looks up the user, returns 401 if invalid.
 6. Logout clears `localStorage` and redirects to `login.html`.
-
----
-
-## Navbar Component
-
-`frontend/navbar_template.html` is a reference file showing the reusable navbar. To add the navbar to any page, copy three things:
-
-**In `<head>`:**
-```html
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-```
-
-**At the top of `<body>`:** copy the `<nav>` block from `navbar_template.html`.
-
-**At the bottom of `<body>`:**
-```html
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="js/navbar.js"></script>
-```
-
-`navbar.js` reads `localStorage` on page load and:
-- Shows **Login / Register** buttons if no token is found.
-- Shows **Hi, [username] + Logout** if a token is found.
-- Logout clears `localStorage` and redirects to `login.html`.
 
 ---
 
@@ -190,15 +169,19 @@ Protected routes require `Authorization: Bearer <token>` in the request header.
 {
   "_id": "uuid string",
   "course": "string",
+  "host": "string",
   "host_id": "user id",
   "type": "online | in-person",
-  "location": "string (room or link)",
+  "location": "string (room name or meeting link)",
   "date": "YYYY-MM-DD",
   "time": "HH:MM",
   "capacity": 5,
-  "enrolled_user_ids": ["user id", "..."]
+  "enrolled_count": 2,
+  "enrolled_users": ["user id", "..."]
 }
 ```
+
+Both `_id` fields are UUID strings generated by the backend, not MongoDB ObjectIds.
 
 ---
 
