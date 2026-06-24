@@ -111,7 +111,6 @@ async def create_session(
     session_data: SessionCreate,
     current_user: Annotated[dict, Depends(get_current_user)]
 ):
-    # date is already a python date object after Pydantic validates the input
     if session_data.date < Date.today():
         raise HTTPException(
             status_code=400,

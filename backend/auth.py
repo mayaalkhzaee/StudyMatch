@@ -141,7 +141,6 @@ async def login(req: Request, data: LoginRequest):
     db = req.app.database
     collection = db["users"]
     user = await collection.find_one({"email": data.email})
-    # Try username lookup so users can log in with either email or username
     if user is None:
         user = await collection.find_one({"username": data.email})
     if not user or not verify_password_hash(
